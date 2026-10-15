@@ -1,0 +1,206 @@
+const API_BASE = '/api';
+
+export const api = {
+  // Profiles
+  async getProfiles() {
+    const res = await fetch(`${API_BASE}/profiles`);
+    if (!res.ok) throw new Error('Failed to fetch profiles');
+    return res.json();
+  },
+
+  async saveProfile(profile) {
+    const res = await fetch(`${API_BASE}/profiles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profile)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to save profile');
+    }
+    return res.json();
+  },
+
+  async deleteProfile(id) {
+    const res = await fetch(`${API_BASE}/profiles/${id}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('Failed to delete profile');
+    return res.json();
+  },
+
+  // Local Files
+  async listLocal(path) {
+    const query = path ? `?path=${encodeURIComponent(path)}` : '';
+    const res = await fetch(`${API_BASE}/local/list${query}`, { cache: 'no-store' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to list local directory');
+    }
+    return res.json();
+  },
+
+  async getLocalShortcuts() {
+    const res = await fetch(`${API_BASE}/local/shortcuts`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async createLocalFolder(parentPath, name) {
+    const res = await fetch(`${API_BASE}/local/mkdir`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parentPath, name })
+    });
+    if (!res.ok) throw new Error('Failed to create folder');
+    return res.json();
+  },
+
+  async deleteLocalItem(path) {
+    const res = await fetch(`${API_BASE}/local/item`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    if (!res.ok) throw new Error('Failed to delete item');
+    return res.json();
+  },
+
+  async renameLocalItem(oldPath, newPath) {
+    const res = await fetch(`${API_BASE}/local/rename`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldPath, newPath })
+    });
+    if (!res.ok) throw new Error('Gagal mengganti nama file lokal');
+    return res.json();
+  },
+
+  // FTP
+  async testFtpConnection(config) {
+    const res = await fetch(`${API_BASE}/ftp/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Connection test failed');
+    return data;
+  },
+
+  async connectFtp(sessionId, config) {
+    const res = await fetch(`${API_BASE}/ftp/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, config })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Connection failed');
+    return data;
+  },
+
+  async listFtp(sessionId, path) {
+    const query = new URLSearchParams({ sessionId, path: path || '' });
+    const res = await fetch(`${API_BASE}/ftp/list?${query.toString()}&_t=${Date.now()}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to list remote folder');
+    return data;
+  },
+
+  async createFtpFolder(sessionId, parentPath, name) {
+    const res = await fetch(`${API_BASE}/ftp/mkdir`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, parentPath, name })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to create remote directory');
+    return data;
+  },
+
+  async deleteFtpItem(sessionId, path, isDir) {
+    const res = await fetch(`${API_BASE}/ftp/item`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, path, isDir })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete remote item');
+    return data;
+  },
+
+  async renameFtpItem(sessionId, oldPath, newPath) {
+    const res = await fetch(`${API_BASE}/ftp/rename`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, oldPath, newPath })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal mengganti nama file remote');
+    return data;
+  },
+
+  async disconnectFtp(sessionId) {
+    const res = await fetch(`${API_BASE}/ftp/disconnect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId })
+    });
+    return res.json();
+  },
+
+  // Direct upload from browser via FormData (file input or drag from desktop)
+  async uploadDirect(sessionId, destinationPath, files) {
+    const formData = new FormData();
+    formData.append('sessionId', sessionId);
+    formData.append('destinationPath', destinationPath || '/');
+    for (const file of files) {
+      formData.append('files', file);
+    }
+    const res = await fetch(`${API_BASE}/ftp/upload-direct`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Gagal mengunggah file langsung');
+    return data;
+  },
+
+  // Transfer Queue
+  async getQueue() {
+    const res = await fetch(`${API_BASE}/queue`, { cache: 'no-store' });
+    return res.json();
+  },
+
+  async addToQueue(tasks) {
+    const res = await fetch(`${API_BASE}/queue/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Array.isArray(tasks) ? { tasks } : tasks)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  },
+
+  async removeFromQueue(id) {
+    const res = await fetch(`${API_BASE}/queue/${id}`, { method: 'DELETE' });
+    return res.json();
+  },
+
+  async moveQueueItem(id, direction) {
+    const res = await fetch(`${API_BASE}/queue/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, direction })
+    });
+    return res.json();
+  },
+
+  async clearFinishedQueue() {
+    const res = await fetch(`${API_BASE}/queue/clear-finished`, {
+      method: 'POST'
+    });
+    return res.json();
+  }
+};

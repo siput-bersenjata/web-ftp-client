@@ -1,0 +1,16 @@
+[
+  {
+    "id": "prof-sample",
+    "name": "Contoh Server FTP",
+    "pcFolder": "C:\\Users\\Username\\Documents",
+    "host": "ftp.example.com",
+    "username": "ftpuser",
+    "password": "password123",
+    "protocol": "ftp",
+    "port": 21,
+    "passive": true,
+    "homeFolder": "/",
+    "isAnonymous": false,
+    "updatedAt": "2026-01-01T00:00:00.000Z"
+  }
+]
