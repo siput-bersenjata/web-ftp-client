@@ -105,7 +105,28 @@ Cara kerja:
 jalur alternatif, tapi mode produksi sekarang Vercel Blob. Jika diaktifkan,
 mengalahkan Blob (auth.js/store.js cek Firebase lebih dulu).
 
-## 4. Bagian yang Belum Selesai / Rencana Lanjutan
+## 4. KEAMANAN (HARDENING — Nov 2026)
+
+Lapisan keamanam yang diterapkan (semua terverifikasi di produksi):
+
+| Lapisan | Lokasi | Proteksi |
+|---------|--------|----------|
+| Autentikasi FTP | `api/ftp/*` | **Wajib token HMAC**; tanpa token → 401 |
+| Rate limiting | `api/_lib/ratelimit.js` | login 10/mnt, register 5/mnt, setup 5/mnt, migrate 3/mnt, beat 60/mnt, FTP 120/mnt per IP |
+| CORS | `api/_lib/security.js` | Allow-list origin (situs sendiri + localhost dev); preflight asing → 403 |
+| SSRF guard | `api/_lib/security.js` | Tolak host privat/loopback/link-local/CGN/`.local` dari server |
+| Security headers | `vercel.json` | CSP, HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy |
+| Local server | `server/server.js` | Bind ke `127.0.0.1` saja (bukan 0.0.0.0) |
+| XSS | — | React default escaping; tidak ada `dangerouslySetInnerHTML`/`innerHTML`/`eval` di codebase |
+| Password akun | `api/_lib/db.js` | SHA-256 + salt per user |
+| Token sesi | `api/_lib/db.js` | HMAC `_secret` in-blob; kedaluwarsa 30 hari; mati saat password berubah |
+
+Catatan batasan:
+- Rate limiter in-memory per instance serverless — meredam abuse, bukan proteksi terdistribusi skala besar.
+- Cookie tidak dipakai (token di localStorage) — risiko CSRF praktis nol.
+- Password FTP di blob privat; akses hanya lewat token akun aplikasi.
+
+## 4.5 Bagian yang Belum Selesai / Rencana Lanjutan
 
 - [ ] Chunked/multipart upload agar file > 4.5MB bisa di-upload di Vercel
       (ide: `POST /api/ftp/upload-chunk` + `APPE` di FTP, atau pakai backend
