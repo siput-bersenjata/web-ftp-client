@@ -594,6 +594,17 @@ body {
 }
 
 /* Panes Area */
+/* Kolom utama di sebelah sidebar: panes (fleksibel) + dock (tetap) */
+.workspace-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-app);
+}
+
 .panes-wrapper {
   display: flex;
   flex: 1;

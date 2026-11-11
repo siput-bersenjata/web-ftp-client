@@ -834,6 +834,7 @@ export default function App() {
         />
 
         {/* Central Panes */}
+        <div className="workspace-main">
         <div className="panes-wrapper">
           {/* Daftar FTP Terhubung — tampil di ponsel (layar sempit) */}
           <div className="mobile-profile-bar">
@@ -923,6 +924,7 @@ export default function App() {
               onEditProfile={() => activeProfile && handleEditProfile(activeProfile)}
             />
           </div>
+        </div>
 
           {/* Bottom Dock: Queue & Terminal Logs */}
           <BottomDock
