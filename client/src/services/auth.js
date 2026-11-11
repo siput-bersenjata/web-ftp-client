@@ -119,10 +119,10 @@ export async function isInitialized() {
 export async function initializeIfEmpty({ adminUsername, adminPassword }) {
   const shared = await sharedStorageReady();
   if (shared) {
-    const res = await fetch('/api/db/setup', {
+    const res = await fetch('/api/db', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: adminUsername, password: adminPassword }),
+      body: JSON.stringify({ action: 'setup', username: adminUsername, password: adminPassword }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Setup gagal.');
@@ -173,10 +173,10 @@ async function createUserInternal({ username, password, role, expiresAt, duratio
 export async function register({ username, password }) {
   const shared = await sharedStorageReady();
   if (shared) {
-    const res = await fetch('/api/db/register', {
+    const res = await fetch('/api/db', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ action: 'register', username, password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Pendaftaran gagal.');
@@ -196,10 +196,10 @@ export async function login({ username, password }) {
     if (!st.initialized) {
       const local = store.readLocalRaw();
       if ((local.users || []).length > 0) {
-        const mig = await fetch('/api/db/migrate', {
+        const mig = await fetch('/api/db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ database: local }),
+          body: JSON.stringify({ action: 'migrate', database: local }),
         });
         const migData = await mig.json().catch(() => ({}));
         if (!mig.ok) throw new Error(migData.error || 'Migrasi data lokal gagal.');
@@ -207,10 +207,10 @@ export async function login({ username, password }) {
       }
     }
 
-    const res = await fetch('/api/db/login', {
+    const res = await fetch('/api/db', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: clean, password }),
+      body: JSON.stringify({ action: 'login', username: clean, password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

@@ -69,7 +69,7 @@ export async function getStatus() {
     return statusCache;
   }
   try {
-    const res = await fetch('/api/db/status', { cache: 'no-store' });
+    const res = await fetch('/api/db?action=status', { cache: 'no-store' });
     if (!res.ok) throw new Error('status error');
     statusCache = await res.json();
   } catch {
@@ -98,10 +98,10 @@ async function ensureRemoteCache() {
   const token = getSessionToken();
   if (!token) return readLocal(); // belum login (mis. butuh daftar akun dulu)
   if (cacheDb) return cacheDb;
-  const res = await fetch('/api/db/load', {
+  const res = await fetch('/api/db', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ action: 'load', token }),
   });
   if (res.status === 401 || res.status === 409) {
     // Token basi / database belum ada — mulai dari mirror lokal
@@ -120,10 +120,10 @@ async function persistRemote() {
   writeLocal(cacheDb);
   const token = getSessionToken();
   if (!token) return; // belum login — cukup tersimpan lokal
-  const res = await fetch('/api/db/save', {
+  const res = await fetch('/api/db', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, database: cacheDb }),
+    body: JSON.stringify({ action: 'save', token, database: cacheDb }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
