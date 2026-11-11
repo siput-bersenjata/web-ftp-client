@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, X, Sun, Moon, Server, HardDrive, Network, Globe, Clock, LifeBuoy,
-  ExternalLink, LogOut, Shield, UserCircle2, Cloud
+  ExternalLink, LogOut, Shield, UserCircle2, Cloud, Menu
 } from 'lucide-react';
 
 export default function TabBar({
@@ -19,6 +19,18 @@ export default function TabBar({
   onOpenAdmin
 }) {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Tutup burger menu saat klik di luar
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDocClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [menuOpen]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -145,6 +157,76 @@ export default function TabBar({
         >
           {theme === 'dark' ? <Sun size={15} color="#f59e0b" /> : <Moon size={15} color="#6366f1" />}
         </button>
+      </div>
+
+      {/* Burger Menu — tampil saat ruang header sempit (semua aksi pindah ke sini) */}
+      <div className="menu-burger-wrap" ref={menuRef}>
+        <button
+          className="icon-btn header-burger"
+          onClick={() => setMenuOpen((v) => !v)}
+          title={menuOpen ? 'Tutup menu' : 'Menu lainnya'}
+          aria-expanded={menuOpen}
+        >
+          {menuOpen ? <X size={15} /> : <Menu size={15} />}
+        </button>
+
+        {menuOpen && (
+          <div className="mobile-menu" role="menu">
+            <a
+              className="menu-item"
+              href="https://salshya-club.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMenuOpen(false)}
+            >
+              <LifeBuoy size={15} color="var(--primary)" />
+              <span>Bantuan Dev</span>
+              <small><ExternalLink size={10} /></small>
+            </a>
+
+            <div className="menu-item static">
+              <Clock size={15} color="var(--primary)" />
+              <span>{formatTime(currentTime)}</span>
+              <small>{formatDate(currentTime)}</small>
+            </div>
+
+            <div className="menu-item static">
+              {isCloud
+                ? <Cloud size={15} color="var(--success)" />
+                : <HardDrive size={15} color="var(--primary)" />}
+              <span>{isCloud ? 'Mode Cloud (Vercel)' : 'Mode Lokal'}</span>
+            </div>
+
+            <div className="menu-divider" />
+
+            <div className="menu-item static">
+              <UserCircle2 size={15} color="var(--primary)" />
+              <span className="menu-username" title={`Masuk sebagai ${user?.username}`}>{user?.username}</span>
+              {isAdmin && (
+                <button
+                  className="user-chip-admin menu-admin-btn"
+                  onClick={() => { setMenuOpen(false); onOpenAdmin && onOpenAdmin(); }}
+                  title="Panel Admin"
+                >
+                  <Shield size={11} />
+                  <span>Admin</span>
+                </button>
+              )}
+            </div>
+
+            <div className="menu-divider" />
+
+            <button className="menu-item" onClick={() => { onToggleTheme && onToggleTheme(); setMenuOpen(false); }}>
+              {theme === 'dark' ? <Sun size={15} color="#f59e0b" /> : <Moon size={15} color="#6366f1" />}
+              <span>{theme === 'dark' ? 'Ganti ke Light Mode' : 'Ganti ke Dark Mode'}</span>
+            </button>
+
+            <button className="menu-item danger" onClick={() => { setMenuOpen(false); onLogout && onLogout(); }}>
+              <LogOut size={15} />
+              <span>Keluar (Logout)</span>
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
