@@ -37,82 +37,8 @@ export async function deleteProfile(id) {
 }
 
 // ---------------------------------------------------------------------------
-// Profil FTP default untuk admin & Cartenz
-// (tanpa password — masukkan password lewat Edit Profil saat konek pertama)
-// ---------------------------------------------------------------------------
-export function shouldSeedDefaults(user) {
-  if (!user) return false;
-  if (user.role === 'admin') return true;
-  return String(user.username || '').trim().toLowerCase() === 'cartenz';
-}
 
-export async function seedDefaultProfiles(user) {
-  const defaults = getDefaultProfiles();
-  const existing = await listProfilesOf(user);
-  for (const d of defaults) {
-    // Jangan buat kembaran jika sudah ada profil dengan nama & host yang sama
-    const exists = existing.some((p) => p.name === d.name && p.host === d.host);
-    if (exists) continue;
-    await saveProfile(user, {
-      name: d.name,
-      pcFolder: '',
-      host: d.host,
-      username: d.username,
-      password: '',
-      protocol: 'ftp',
-      port: 21,
-      passive: true,
-      homeFolder: d.homeFolder,
-      isAnonymous: false,
-      isDefault: true,
-    });
-  }
-}
-
-function getDefaultProfiles() {
-  return [
-    { name: 'Hasil ekstrak', host: 'ftp.example.com', username: 'ftp-user-1', homeFolder: '/' },
-    { name: 'Harris', host: 'ftp.example.com', username: 'ftp-user-harris', homeFolder: '/' },
-    { name: 'Mercure', host: 'ftp.example.com', username: 'ftp-user-mercure', homeFolder: '/' },
-  ];
-}
-
-/**
- * Sinkronkan profil default yang sudah ada di perangkat user
- * (mis. dibuat oleh versi lama dengan username salah / host berubah).
- * Hanya memperbarui profil yang ditandai `isDefault` dan yang password-nya
- * masih kosong — password yang sudah diisi user tidak pernah ditimpa.
- */
-export async function syncDefaultProfiles(user) {
-  const all = await listProfilesOf(user);
-  const defaults = getDefaultProfiles();
-  let changed = false;
-  for (const p of all) {
-    const d = defaults.find((x) => x.name === p.name);
-    if (!d) continue;
-    // Profil default baru, atau profil warisan hasil seed versi lama
-    // (host cocok + milik user ini)
-    const isLegacyDefault = p.host === d.host && p.ownerId === user?.id;
-    if (!p.isDefault && !isLegacyDefault) continue;
-    if (!p.isDefault) {
-      // Seed lama: username/label pasti salah — perbaiki paksa (password milik user tetap)
-      await saveProfile(user, {
-        ...p,
-        host: d.host,
-        username: d.username,
-        homeFolder: d.homeFolder,
-        isDefault: true,
-      });
-      changed = true;
-    } else if (!p.password && (p.username !== d.username || p.host !== d.host || p.homeFolder !== d.homeFolder)) {
-      await saveProfile(user, {
-        ...p,
-        host: d.host,
-        username: d.username,
-        homeFolder: d.homeFolder,
-      });
-      changed = true;
-    }
-  }
-  return changed;
-}
+// Profil FTP bawaan tidak lagi dikodekan di source (lihat CATATAN-SETUP.md).
+export function shouldSeedDefaults(_user) { return false; }
+export async function seedDefaultProfiles(_user) { return; }
+export async function syncDefaultProfiles(_user) { return false; }

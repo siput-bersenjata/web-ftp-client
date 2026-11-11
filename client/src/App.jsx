@@ -159,16 +159,6 @@ export default function App() {
     try {
       let userProfiles = await profilesService.listProfiles(user);
 
-      // Admin & Cartenz otomatis mendapat daftar FTP default saat belum punya profil
-      if (userProfiles.length === 0 && profilesService.shouldSeedDefaults(user)) {
-        await profilesService.seedDefaultProfiles(user);
-        userProfiles = await profilesService.listProfiles(user);
-      } else if (profilesService.shouldSeedDefaults(user)) {
-        // Perbaiki profil default lama (mis. username seed versi sebelumnya salah)
-        await profilesService.syncDefaultProfiles(user);
-        userProfiles = await profilesService.listProfiles(user);
-      }
-
       setProfiles(userProfiles);
       localStorage.setItem('ftp_profiles', JSON.stringify(userProfiles));
 
