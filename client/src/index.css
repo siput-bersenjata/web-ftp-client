@@ -1835,3 +1835,77 @@ body {
   .admin-create-grid { grid-template-columns: 1fr 1fr; }
 }
 
+/* ==========================================================================
+   BAR FTP TERHUBUNG (khusus ponsel / layar sempit)
+   ========================================================================== */
+.mobile-profile-bar { display: none; }
+
+@media (max-width: 760px) {
+  .mobile-profile-bar {
+    display: block;
+    padding: 10px 10px 4px;
+    background: var(--bg-app);
+  }
+}
+
+.mobile-profile-bar-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.mobile-profile-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.mobile-profile-chip:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+.mobile-profile-chip.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary), var(--shadow-primary);
+}
+
+.mobile-profile-chip.add {
+  color: var(--text-secondary);
+  border-style: dashed;
+}
+
+.chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mobile-profile-chip.active .chip-dot {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+

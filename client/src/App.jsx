@@ -147,7 +147,14 @@ export default function App() {
   // ---------------------------------------------------------------
   const loadProfiles = async () => {
     try {
-      const userProfiles = await profilesService.listProfiles(user);
+      let userProfiles = await profilesService.listProfiles(user);
+
+      // Admin & Cartenz otomatis mendapat daftar FTP default saat belum punya profil
+      if (userProfiles.length === 0 && profilesService.shouldSeedDefaults(user)) {
+        await profilesService.seedDefaultProfiles(user);
+        userProfiles = await profilesService.listProfiles(user);
+      }
+
       setProfiles(userProfiles);
       localStorage.setItem('ftp_profiles', JSON.stringify(userProfiles));
 
@@ -810,6 +817,24 @@ export default function App() {
 
         {/* Central Panes */}
         <div className="panes-wrapper">
+          {/* Daftar FTP Terhubung — tampil di ponsel (layar sempit) */}
+          <div className="mobile-profile-bar">
+            <div className="mobile-profile-bar-title">FTP Terhubung</div>
+            <div className="mobile-profile-chips">
+              {profiles.map((p) => (
+                <button
+                  key={p.id}
+                  className={`mobile-profile-chip ${p.id === activeProfileId ? 'active' : ''}`}
+                  onClick={() => handleOpenSession(p)}
+                  title={`${p.host} [${p.username || 'anonymous'}]`}
+                >
+                  <span className="chip-dot" />
+                  {p.name}
+                </button>
+              ))}
+              <button className="mobile-profile-chip add" onClick={handleOpenCreateModal}>+ Baru</button>
+            </div>
+          </div>
           <div className="dual-panes">
             {/* Left Pane: PC Local / Browser Staging */}
             <FilePane
