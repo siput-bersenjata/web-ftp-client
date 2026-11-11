@@ -49,8 +49,8 @@ export function shouldSeedDefaults(user) {
 export async function seedDefaultProfiles(user) {
   const defaults = [
     { name: 'Hasil ekstrak', username: 'ftp-user-1', homeFolder: '/' },
-    { name: 'Harris', username: 'harris-user', homeFolder: '/Harris' },
-    { name: 'Mercure', username: 'ftp-user-1', homeFolder: '/Mercure' },
+    { name: 'Harris', username: 'ftp-user-harris', homeFolder: '/' },
+    { name: 'Mercure', username: 'ftp-user-mercure', homeFolder: '/' },
   ];
   for (const d of defaults) {
     await saveProfile(user, {

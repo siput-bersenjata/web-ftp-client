@@ -162,7 +162,8 @@ export const api = {
     const res = await fetch(`${API_BASE}/ftp/test`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config)
+      // Serverless (cloud): membaca body.config; server lokal: memakai body sebagai config langsung
+      body: JSON.stringify(isCloudMode ? { config } : config)
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Connection test failed');
