@@ -8,51 +8,10 @@ const PROFILES_FILE = path.join(DATA_DIR, 'profiles.json');
 // Default home folder on user's PC
 const defaultPcFolder = path.join(os.homedir(), 'Documents');
 
-// Initial seed profiles matching typical setup
-const defaultProfiles = [
-  {
-    id: 'prof-hasil-ekstrak',
-    name: 'Hasil ekstrak',
-    pcFolder: defaultPcFolder,
-    host: 'ftp.example.com',
-    username: 'ftp-user-1',
-    password: '',
-    protocol: 'ftp',
-    port: 21,
-    passive: true,
-    homeFolder: '/HotelMercure',
-    isAnonymous: false,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'prof-harris',
-    name: 'Harris',
-    pcFolder: defaultPcFolder,
-    host: 'ftp.example.com',
-    username: 'harris-user',
-    password: '',
-    protocol: 'ftp',
-    port: 21,
-    passive: true,
-    homeFolder: '/Harris',
-    isAnonymous: false,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'prof-mercure',
-    name: 'Mercure',
-    pcFolder: defaultPcFolder,
-    host: 'ftp.example.com',
-    username: 'ftp-user-1',
-    password: '',
-    protocol: 'ftp',
-    port: 21,
-    passive: true,
-    homeFolder: '/Mercure',
-    isAnonymous: false,
-    createdAt: new Date().toISOString()
-  }
-];
+// NOTE: Jangan pernah menaruh kredensial FTP asli di sini (repo ini publik).
+// Contoh profil hanya placeholder — kredensial nyata disimpan via aplikasi
+// (data/profiles.json yang di-gitignore atau cloud store seperti Firebase).
+const defaultProfiles = [];
 
 async function ensureDataFile() {
   await fs.ensureDir(DATA_DIR);

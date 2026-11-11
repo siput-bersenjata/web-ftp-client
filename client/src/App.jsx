@@ -5,14 +5,28 @@ import FilePane from './components/FilePane';
 import TransferBar from './components/TransferBar';
 import BottomDock from './components/BottomDock';
 import CreateProfileModal from './components/CreateProfileModal';
-import { api } from './services/api';
+import LoginScreen from './components/LoginScreen';
+import AdminPanel from './components/AdminPanel';
+import { api, isCloudMode, cloudUpload, cloudDownload } from './services/api';
 import { wsClient } from './services/ws';
+import * as authService from './services/auth';
+import * as profilesService from './services/profiles';
 
 export default function App() {
-  // Theme state: 'dark' or 'light'
+  // ---------------------------------------------------------------
+  // Sesi pengguna (gate login + akun terdaftar)
+  // ---------------------------------------------------------------
+  const [user, setUser] = useState(() => authService.getCurrentUser());
+  const isAdmin = user?.role === 'admin';
+  const [adminOpen, setAdminOpen] = useState(false);
+
+  // Theme state: 'dark' (AMOLED) or 'light' (putih)
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('ftp_theme') || 'dark';
   });
+
+  // Mode aplikasi: cloud (Vercel) vs server lokal (Node di PC sendiri)
+  const isCloud = isCloudMode;
 
   // Saved profiles list
   const [profiles, setProfiles] = useState([]);
@@ -26,13 +40,14 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
 
-  // Left Pane: PC Local
+  // Left Pane: PC Local (server mode) atau Staging File Browser (cloud mode)
   const [localPath, setLocalPath] = useState('');
   const [localParent, setLocalParent] = useState(null);
   const [localItems, setLocalItems] = useState([]);
   const [localTotal, setLocalTotal] = useState(0);
   const [localLoading, setLocalLoading] = useState(false);
   const [selectedLocal, setSelectedLocal] = useState([]);
+  const [stagedFiles, setStagedFiles] = useState([]); // File objects (cloud mode)
 
   // Right Pane: Remote FTP
   const [remotePath, setRemotePath] = useState('/');
@@ -44,7 +59,7 @@ export default function App() {
   const [remoteError, setRemoteError] = useState(null);
 
   const [logs, setLogs] = useState([]);
-  const [queue, setQueue] = useState([]);
+  const [queue, setQueue] = useState([]); // server mode: dari WS; cloud mode: client-side
   const [toast, setToast] = useState(null);
   const [recentlyTransferred, setRecentlyTransferred] = useState([]);
 
@@ -55,7 +70,9 @@ export default function App() {
 
   // Latest values for the WebSocket handler, which is registered once
   const liveRef = useRef({});
-  liveRef.current = { activeTabId, remotePath, localPath };
+  liveRef.current = { activeTabId, remotePath, localPath, profiles };
+  const profilesRef = useRef([]);
+  profilesRef.current = profiles;
   const refreshTimer = useRef(null);
 
   // Apply theme to document
@@ -70,8 +87,14 @@ export default function App() {
 
   // 1. Initial Load: Fetch profiles & Local directory
   useEffect(() => {
+    if (!user) return;
     loadProfiles();
-    loadLocalFiles();
+    if (!isCloud) loadLocalFiles();
+
+    if (isCloud) {
+      addLog('Mode Cloud aktif: FTP diakses melalui server aman (kredensial tidak disimpan di server).');
+      return;
+    }
 
     // Global keyboard shortcuts
     const handleKeyDown = (e) => {
@@ -117,19 +140,20 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       unsubscribe();
     };
-  }, []);
+  }, [user]);
 
+  // ---------------------------------------------------------------
+  // Profil koneksi (store: localStorage / Firestore)
+  // ---------------------------------------------------------------
   const loadProfiles = async () => {
     try {
-      const serverProfiles = await api.getProfiles();
-      if (serverProfiles && serverProfiles.length > 0) {
-        setProfiles(serverProfiles);
-        localStorage.setItem('ftp_profiles', JSON.stringify(serverProfiles));
+      const userProfiles = await profilesService.listProfiles(user);
+      setProfiles(userProfiles);
+      localStorage.setItem('ftp_profiles', JSON.stringify(userProfiles));
 
-        if (tabs.length === 0) {
-          const defaultProf = serverProfiles.find((p) => p.name === 'Harris') || serverProfiles[0];
-          handleOpenSession(defaultProf);
-        }
+      if (userProfiles.length > 0 && tabs.length === 0) {
+        const defaultProf = userProfiles[0];
+        handleOpenSession(defaultProf);
       }
     } catch (err) {
       console.error('Failed to load profiles:', err);
@@ -140,7 +164,12 @@ export default function App() {
     }
   };
 
+  const handleSaveProfile = async (profilePayload) => {
+    return profilesService.saveProfile(user, profilePayload);
+  };
+
   const loadLocalFiles = async (targetPath) => {
+    if (isCloud) return; // cloud: pane lokal = staging browser
     setLocalLoading(true);
     try {
       const data = await api.listLocal(targetPath);
@@ -177,10 +206,12 @@ export default function App() {
     }
   }, [profiles]);
 
+  // ---------------------------------------------------------------
+  // Koneksi FTP
+  // ---------------------------------------------------------------
   const handleOpenSession = async (profile) => {
     setActiveProfileId(profile.id);
 
-    // Update tab or create new tab with the latest profile object
     const newTab = {
       id: profile.id,
       name: profile.name || profile.host,
@@ -201,7 +232,7 @@ export default function App() {
 
     setActiveTabId(profile.id);
 
-    if (profile.pcFolder) {
+    if (!isCloud && profile.pcFolder) {
       loadLocalFiles(profile.pcFolder);
     }
 
@@ -216,7 +247,11 @@ export default function App() {
     addLog(`Menghubungkan ke ${profile.host}:${profile.port || 21}...`);
 
     try {
-      await api.connectFtp(sessionId, profile);
+      if (isCloud) {
+        await api.testFtpConnection(profile);
+      } else {
+        await api.connectFtp(sessionId, profile);
+      }
       setFtpConnected(true);
       setRemoteError(null);
       addLog(`230 Pengguna ${profile.username || 'anonymous'} berhasil login.`);
@@ -237,7 +272,9 @@ export default function App() {
   const loadRemoteFiles = async (sessionId, path, { silent = false } = {}) => {
     if (!silent) setRemoteLoading(true);
     try {
-      const data = await api.listFtp(sessionId, path);
+      const data = isCloud
+        ? await api.ftpList(getProfileById(sessionId), path)
+        : await api.listFtp(sessionId, path);
       setRemotePath(data.currentPath);
       setRemoteItems(data.items || []);
       setRemoteTotal(data.totalItems || 0);
@@ -255,6 +292,14 @@ export default function App() {
     }
   };
 
+  const getProfileById = (sessionId) => {
+    return (
+      profilesRef.current.find((p) => p.id === sessionId) ||
+      liveRef.current.profiles?.find((p) => p.id === sessionId) ||
+      profiles.find((p) => p.id === sessionId)
+    );
+  };
+
   const addLog = (message) => {
     setLogs((prev) => [
       ...prev,
@@ -262,16 +307,114 @@ export default function App() {
     ]);
   };
 
+  // ---------------------------------------------------------------
+  // Cloud: antrian transfer client-side
+  // ---------------------------------------------------------------
+  const pushCloudTask = (task) => {
+    setQueue((prev) => [task, ...prev]);
+    return task.id;
+  };
+
+  const updateCloudTask = (id, patch) => {
+    setQueue((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  };
+
+  // Staging file (mode cloud)
+  const handleStageFiles = (files) => {
+    const mapped = Array.from(files).map((f, i) => ({
+      name: f.name,
+      path: `__staged_${Date.now()}_${i}`,
+      size: f.size,
+      isDirectory: false,
+      type: 'File',
+      modifiedDate: new Date(f.lastModified || Date.now()).toISOString(),
+      file: f
+    }));
+    setStagedFiles((prev) => [...prev, ...mapped]);
+    setLocalItems((prev) => [...prev, ...mapped]);
+    setLocalTotal((prev) => prev + mapped.length);
+    addLog(`${mapped.length} file siap di-upload dari browser.`);
+    showToast(`${mapped.length} file ditambahkan ke staging.`, 'info');
+  };
+
+  // Cloud upload helper
+  const runCloudUpload = async (stagedItem, destPath) => {
+    const profile = getProfileById(activeTabId);
+    if (!profile) return;
+    const taskId = pushCloudTask({
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: stagedItem.name,
+      type: 'upload',
+      status: 'Transferring',
+      progress: 0,
+      sourcePath: '[Browser]',
+      destinationPath: destPath,
+      size: stagedItem.size || 0
+    });
+    try {
+      await cloudUpload(profile, destPath, stagedItem.file, (loaded, total) => {
+        updateCloudTask(taskId, { progress: Math.round((loaded / total) * 100) });
+      });
+      updateCloudTask(taskId, { status: 'Completed', progress: 100 });
+      showToast(`Upload berhasil: ${stagedItem.name}`, 'success');
+      setRecentlyTransferred((prev) => [...prev.filter((n) => n !== stagedItem.name), stagedItem.name]);
+      addLog(`226 Upload selesai: ${stagedItem.name} -> ${destPath}`);
+    } catch (err) {
+      updateCloudTask(taskId, { status: 'Failed', error: err.message });
+      showToast(`Gagal upload: ${stagedItem.name} (${err.message})`, 'error');
+      addLog(`[Error] Upload ${stagedItem.name}: ${err.message}`);
+    }
+  };
+
+  const runCloudUploadsSequential = async (items, destPath) => {
+    for (const item of items) {
+      await runCloudUpload(item, destPath);
+    }
+    const profile = getProfileById(activeTabId);
+    if (profile && ftpConnected) loadRemoteFiles(profile.id, remotePath, { silent: true });
+  };
+
+  // Cloud download helper
+  const runCloudDownload = async (item) => {
+    const profile = getProfileById(activeTabId);
+    if (!profile) return;
+    const taskId = pushCloudTask({
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: item.name,
+      type: 'download',
+      status: 'Transferring',
+      progress: 50,
+      sourcePath: item.path,
+      destinationPath: 'Browser (perangkat ini)',
+      size: item.size || 0
+    });
+    try {
+      await cloudDownload(profile, item.path);
+      updateCloudTask(taskId, { status: 'Completed', progress: 100 });
+      showToast(`Download berhasil: ${item.name}`, 'success');
+      addLog(`226 Download selesai: ${item.name}`);
+    } catch (err) {
+      updateCloudTask(taskId, { status: 'Failed', error: err.message });
+      showToast(`Gagal download: ${item.name} (${err.message})`, 'error');
+      addLog(`[Error] Download ${item.name}: ${err.message}`);
+    }
+  };
+
+  // ---------------------------------------------------------------
   // Local Pane Actions
+  // ---------------------------------------------------------------
   const handleLocalNavigate = (newPath) => {
+    if (isCloud) return;
     loadLocalFiles(newPath);
   };
 
   const handleLocalNavigateUp = () => {
-    if (localParent) loadLocalFiles(localParent);
+    if (!localParent) return;
+    loadLocalFiles(localParent);
   };
 
   const handleLocalCreateFolder = async (name) => {
+    if (isCloud) return;
     try {
       await api.createLocalFolder(localPath, name);
       loadLocalFiles(localPath);
@@ -281,6 +424,14 @@ export default function App() {
   };
 
   const handleLocalDelete = async (items) => {
+    if (isCloud) {
+      // Hapus dari staging
+      const ids = new Set(items.map((i) => i.path));
+      setStagedFiles((prev) => prev.filter((f) => !ids.has(f.path)));
+      setLocalItems((prev) => prev.filter((f) => !ids.has(f.path)));
+      setLocalTotal((prev) => Math.max(0, prev - items.length));
+      return;
+    }
     try {
       for (const item of items) {
         await api.deleteLocalItem(item.path);
@@ -292,6 +443,15 @@ export default function App() {
   };
 
   const handleLocalRename = async (item, newName) => {
+    if (isCloud) {
+      const idx = stagedFiles.findIndex((f) => f.path === item.path);
+      if (idx < 0 || !newName || newName === item.name) return;
+      const renamed = { ...stagedFiles[idx], name: newName };
+      setStagedFiles((prev) => prev.map((f, i) => (i === idx ? renamed : f)));
+      setLocalItems((prev) => prev.map((f, i) => (i === idx ? renamed : f)));
+      showToast(`Nama file diubah menjadi ${newName}`, 'success');
+      return;
+    }
     if (!newName || newName === item.name) return;
     try {
       const parts = item.path.split(/[/\\]/);
@@ -306,7 +466,9 @@ export default function App() {
     }
   };
 
+  // ---------------------------------------------------------------
   // Remote Pane Actions
+  // ---------------------------------------------------------------
   const handleRemoteNavigate = (newPath) => {
     if (activeTabId) {
       loadRemoteFiles(activeTabId, newPath);
@@ -324,7 +486,11 @@ export default function App() {
   const handleRemoteCreateFolder = async (name) => {
     if (!activeTabId) return;
     try {
-      await api.createFtpFolder(activeTabId, remotePath, name);
+      if (isCloud) {
+        await api.ftpMkdir(getProfileById(activeTabId), remotePath, name);
+      } else {
+        await api.createFtpFolder(activeTabId, remotePath, name);
+      }
       loadRemoteFiles(activeTabId, remotePath);
     } catch (err) {
       alert('Gagal membuat folder remote: ' + err.message);
@@ -335,7 +501,11 @@ export default function App() {
     if (!activeTabId) return;
     try {
       for (const item of items) {
-        await api.deleteFtpItem(activeTabId, item.path, item.isDirectory);
+        if (isCloud) {
+          await api.ftpDelete(getProfileById(activeTabId), item.path, item.isDirectory);
+        } else {
+          await api.deleteFtpItem(activeTabId, item.path, item.isDirectory);
+        }
       }
       loadRemoteFiles(activeTabId, remotePath);
     } catch (err) {
@@ -348,7 +518,11 @@ export default function App() {
     try {
       const parentDir = remotePath === '/' ? '/' : remotePath;
       const newPath = parentDir.endsWith('/') ? `${parentDir}${newName}` : `${parentDir}/${newName}`;
-      await api.renameFtpItem(activeTabId, item.path, newPath);
+      if (isCloud) {
+        await api.ftpRename(getProfileById(activeTabId), item.path, newPath);
+      } else {
+        await api.renameFtpItem(activeTabId, item.path, newPath);
+      }
       showToast(`Nama file diubah menjadi ${newName}`, 'success');
       loadRemoteFiles(activeTabId, remotePath);
     } catch (err) {
@@ -356,23 +530,27 @@ export default function App() {
     }
   };
 
-  const queueTasks = async (tasks, label) => {
+  // ---------------------------------------------------------------
+  // Transfer Actions
+  // ---------------------------------------------------------------
+  const guardConnected = () => {
     if (!ftpConnected) {
       alert('Belum terhubung ke server FTP. Hubungkan dulu sebelum transfer.');
-      return;
+      return false;
     }
-    try {
-      await api.addToQueue(tasks);
-      addLog(label);
-    } catch (err) {
-      addLog(`[Error] Gagal menambah antrian: ${err.message}`);
-      alert('Gagal menambah antrian transfer: ' + err.message);
-    }
+    return true;
   };
 
-  // Transfer Actions
   const handleUploadSelected = async () => {
     if (selectedLocal.length === 0 || !activeTabId) return;
+    if (!guardConnected()) return;
+
+    if (isCloud) {
+      await runCloudUploadsSequential(selectedLocal, remotePath);
+      setSelectedLocal([]);
+      return;
+    }
+
     const tasks = selectedLocal.map((item) => ({
       name: item.name,
       type: 'upload',
@@ -382,11 +560,26 @@ export default function App() {
       isDirectory: !!item.isDirectory,
       sessionId: activeTabId
     }));
-    await queueTasks(tasks, `Menambahkan ${tasks.length} item ke antrian upload -> ${remotePath}`);
+    try {
+      await api.addToQueue(tasks);
+      addLog(`Menambahkan ${tasks.length} item ke antrian upload -> ${remotePath}`);
+    } catch (err) {
+      alert('Gagal menambah antrian transfer: ' + err.message);
+    }
   };
 
   const handleDownloadSelected = async () => {
     if (selectedRemote.length === 0 || !activeTabId) return;
+    if (!guardConnected()) return;
+
+    if (isCloud) {
+      for (const item of selectedRemote) {
+        await runCloudDownload(item);
+      }
+      setSelectedRemote([]);
+      return;
+    }
+
     const tasks = selectedRemote.map((item) => ({
       name: item.name,
       type: 'download',
@@ -394,14 +587,32 @@ export default function App() {
       destinationPath: localPath,
       size: item.size || 0,
       isDirectory: !!item.isDirectory,
+      modifiedDate: item.modifiedDate,
       sessionId: activeTabId
     }));
-    await queueTasks(tasks, `Menambahkan ${tasks.length} item ke antrian download -> ${localPath}`);
+    try {
+      await api.addToQueue(tasks);
+      addLog(`Menambahkan ${tasks.length} item ke antrian download -> ${localPath}`);
+    } catch (err) {
+      alert('Gagal menambah antrian transfer: ' + err.message);
+    }
   };
 
   // Drag & drop cross-transfer
   const handleDropTransfer = async (items, targetDestPath) => {
     if (!items || items.length === 0 || !activeTabId) return;
+    if (!guardConnected()) return;
+
+    if (isCloud) {
+      const fromStaged = !!items[0].file;
+      if (fromStaged) {
+        await runCloudUploadsSequential(items, targetDestPath);
+      } else {
+        for (const item of items) await runCloudDownload(item);
+      }
+      return;
+    }
+
     const isUpload = !items[0].attribute;
     const tasks = items.map((item) => ({
       name: item.name,
@@ -410,10 +621,16 @@ export default function App() {
       destinationPath: targetDestPath,
       size: item.size || 0,
       isDirectory: !!item.isDirectory,
+      modifiedDate: item.modifiedDate,
       sessionId: activeTabId
     }));
     showToast(`Mentransfer ${tasks.length} item via Drag & Drop...`, 'info');
-    await queueTasks(tasks, `Menambahkan ${tasks.length} item via Drag & Drop`);
+    try {
+      await api.addToQueue(tasks);
+      addLog(`Menambahkan ${tasks.length} item via Drag & Drop`);
+    } catch (err) {
+      alert('Gagal menambah antrian transfer: ' + err.message);
+    }
   };
 
   // Direct upload from browser (file input or dropped from desktop)
@@ -423,6 +640,18 @@ export default function App() {
       return;
     }
     showToast(`Mengunggah ${files.length} file ke FTP...`, 'info');
+
+    if (isCloud) {
+      const mapped = Array.from(files).map((f, i) => ({
+        name: f.name,
+        size: f.size,
+        path: `__direct_${Date.now()}_${i}`,
+        file: f
+      }));
+      await runCloudUploadsSequential(mapped, remotePath);
+      return;
+    }
+
     try {
       await api.uploadDirect(activeTabId, remotePath, files);
       addLog(`Mengunggah ${files.length} file langsung ke ${remotePath}`);
@@ -439,6 +668,17 @@ export default function App() {
       alert('Belum terhubung ke server FTP. Silakan hubungkan dulu.');
       return;
     }
+    if (isCloud) {
+      if (fromType === 'local') {
+        await runCloudUpload(item, remotePath);
+        const profile = getProfileById(activeTabId);
+        if (profile) loadRemoteFiles(profile.id, remotePath, { silent: true });
+      } else {
+        await runCloudDownload(item);
+      }
+      return;
+    }
+
     const isUpload = fromType === 'local';
     const task = {
       name: item.name,
@@ -447,13 +687,21 @@ export default function App() {
       destinationPath: isUpload ? remotePath : localPath,
       size: item.size || 0,
       isDirectory: !!item.isDirectory,
+      modifiedDate: item.modifiedDate,
       sessionId: activeTabId
     };
     showToast(`Memulai ${isUpload ? 'Upload' : 'Download'}: ${item.name}`, 'info');
-    await queueTasks([task], `Mentransfer ${item.name} -> ${isUpload ? remotePath : localPath}`);
+    try {
+      await api.addToQueue([task]);
+      addLog(`Mentransfer ${item.name} -> ${isUpload ? remotePath : localPath}`);
+    } catch (err) {
+      alert('Gagal menambah antrian transfer: ' + err.message);
+    }
   };
 
+  // ---------------------------------------------------------------
   // Profile Management
+  // ---------------------------------------------------------------
   const handleOpenCreateModal = () => {
     setEditingProfile(null);
     setIsModalOpen(true);
@@ -466,8 +714,16 @@ export default function App() {
 
   const handleDeleteProfile = async (id) => {
     if (confirm('Hapus profil koneksi ini?')) {
-      await api.deleteProfile(id);
-      loadProfiles();
+      try {
+        await profilesService.deleteProfile(id);
+      } catch {
+        await api.deleteProfile(id);
+      }
+      const remaining = profiles.filter((p) => p.id !== id);
+      setProfiles(remaining);
+      if (activeProfileId === id) {
+        handleCloseTab(id);
+      }
     }
   };
 
@@ -484,12 +740,33 @@ export default function App() {
         setActiveProfileId(null);
         setRemoteItems([]);
         setRemoteTotal(0);
+        setFtpConnected(false);
       }
     }
   };
 
+  const handleLogout = () => {
+    authService.logout();
+    setUser(null);
+  };
+
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeProfile = profiles.find((p) => p.id === activeTabId) || activeTab?.profile;
+
+  // ---------------------------------------------------------------
+  // Gate login
+  // ---------------------------------------------------------------
+  if (!user) {
+    return (
+      <LoginScreen
+        onLoggedIn={(u) => {
+          setUser(u);
+        }}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    );
+  }
 
   return (
     <div className="app-container">
@@ -503,7 +780,7 @@ export default function App() {
           setRemoteError(null);
           const prof = profiles.find((p) => p.id === id) || tabs.find((t) => t.id === id)?.profile;
           if (prof) {
-            if (prof.pcFolder) loadLocalFiles(prof.pcFolder);
+            if (!isCloud && prof.pcFolder) loadLocalFiles(prof.pcFolder);
             connectToRemote(prof);
           }
         }}
@@ -511,6 +788,11 @@ export default function App() {
         onOpenCreateModal={handleOpenCreateModal}
         theme={theme}
         onToggleTheme={toggleTheme}
+        user={user}
+        isAdmin={isAdmin}
+        isCloud={isCloud}
+        onLogout={handleLogout}
+        onOpenAdmin={() => setAdminOpen(true)}
       />
 
       {/* 2. Main Workspace Area */}
@@ -529,25 +811,26 @@ export default function App() {
         {/* Central Panes */}
         <div className="panes-wrapper">
           <div className="dual-panes">
-            {/* Left Pane: PC Local */}
+            {/* Left Pane: PC Local / Browser Staging */}
             <FilePane
-              title="PC: bram (Lokal)"
+              title={isCloud ? 'Browser: File Staging' : 'PC: bram (Lokal)'}
               type="local"
-              currentPath={localPath}
-              items={localItems}
+              currentPath={isCloud ? 'Browser' : localPath}
+              items={isCloud ? localItems : localItems}
               totalItems={localTotal}
               isLoading={localLoading}
               selectedItems={selectedLocal}
               onSelectItems={setSelectedLocal}
               onNavigate={handleLocalNavigate}
-              onNavigateUp={handleLocalNavigateUp}
-              onRefresh={() => loadLocalFiles(localPath)}
-              onCreateFolder={handleLocalCreateFolder}
+              onNavigateUp={isCloud ? null : handleLocalNavigateUp}
+              onRefresh={() => (isCloud ? null : loadLocalFiles(localPath))}
+              onCreateFolder={isCloud ? null : handleLocalCreateFolder}
               onDeleteItem={handleLocalDelete}
               onRenameItem={handleLocalRename}
               onDropTransfer={handleDropTransfer}
               onTransferItem={(item) => handleTransferSingleItem(item, 'local')}
               onTransferSelected={handleUploadSelected}
+              onStageFiles={isCloud ? handleStageFiles : null}
               recentlyTransferred={recentlyTransferred}
             />
 
@@ -602,9 +885,23 @@ export default function App() {
           <BottomDock
             logs={logs}
             queue={queue}
-            onRemoveTask={(id) => api.removeFromQueue(id)}
-            onMoveTask={(id, dir) => api.moveQueueItem(id, dir)}
-            onClearFinished={() => api.clearFinishedQueue()}
+            onRemoveTask={(id) => {
+              if (isCloud) {
+                setQueue((prev) => prev.filter((t) => t.id !== id));
+              } else {
+                api.removeFromQueue(id);
+              }
+            }}
+            onMoveTask={(id, dir) => {
+              if (!isCloud) api.moveQueueItem(id, dir);
+            }}
+            onClearFinished={() => {
+              if (isCloud) {
+                setQueue((prev) => prev.filter((t) => t.status !== 'Completed' && t.status !== 'Failed'));
+              } else {
+                api.clearFinishedQueue();
+              }
+            }}
           />
         </div>
       </div>
@@ -614,11 +911,15 @@ export default function App() {
         isOpen={isModalOpen}
         initialData={editingProfile}
         onClose={() => setIsModalOpen(false)}
+        onSaveProfile={handleSaveProfile}
         onConnect={(newProfile) => {
           loadProfiles();
           handleOpenSession(newProfile);
         }}
       />
+
+      {/* Panel Admin (hanya role admin) */}
+      <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
 
       {/* Instant Toast Notification */}
       {toast && (
@@ -632,10 +933,10 @@ export default function App() {
             background: toast.type === 'success' ? '#059669' : toast.type === 'error' ? '#dc2626' : '#2563eb',
             color: '#ffffff',
             padding: '10px 18px',
-            borderRadius: '8px',
+            borderRadius: '10px',
             fontSize: '13px',
             fontWeight: 600,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',

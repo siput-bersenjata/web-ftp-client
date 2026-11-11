@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 
-export default function CreateProfileModal({ isOpen, onClose, onConnect, initialData }) {
+export default function CreateProfileModal({ isOpen, onClose, onConnect, initialData, onSaveProfile }) {
   const [profileName, setProfileName] = useState('');
   const [pcFolder, setPcFolder] = useState('C:\\Users\\bram\\Documents');
   const [ftpAddress, setFtpAddress] = useState('');
@@ -131,12 +131,18 @@ export default function CreateProfileModal({ isOpen, onClose, onConnect, initial
     };
 
     try {
-      const saved = await api.saveProfile(profilePayload);
-      
-      const localSaved = JSON.parse(localStorage.getItem('ftp_profiles') || '[]');
-      const filtered = localSaved.filter(p => p.id !== saved.id);
-      filtered.push(saved);
-      localStorage.setItem('ftp_profiles', JSON.stringify(filtered));
+      // onSaveProfile dipakai saat mode cloud (profil disimpan ke store user),
+      // sedangkan api.saveProfile dipakai saat menjalankan server lokal.
+      const saved = onSaveProfile
+        ? await onSaveProfile(profilePayload)
+        : await api.saveProfile(profilePayload);
+
+      if (!onSaveProfile) {
+        const localSaved = JSON.parse(localStorage.getItem('ftp_profiles') || '[]');
+        const filtered = localSaved.filter(p => p.id !== saved.id);
+        filtered.push(saved);
+        localStorage.setItem('ftp_profiles', JSON.stringify(filtered));
+      }
 
       if (onConnect) {
         onConnect(saved);

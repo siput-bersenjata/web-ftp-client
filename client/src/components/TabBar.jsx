@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Sun, Moon, Server, HardDrive, Network, Globe, Clock, LifeBuoy, ExternalLink } from 'lucide-react';
+import {
+  Plus, X, Sun, Moon, Server, HardDrive, Network, Globe, Clock, LifeBuoy,
+  ExternalLink, LogOut, Shield, UserCircle2, Cloud
+} from 'lucide-react';
 
 export default function TabBar({
   tabs,
@@ -8,7 +11,12 @@ export default function TabBar({
   onCloseTab,
   onOpenCreateModal,
   theme,
-  onToggleTheme
+  onToggleTheme,
+  user,
+  isAdmin = false,
+  isCloud = false,
+  onLogout,
+  onOpenAdmin
 }) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -111,8 +119,24 @@ export default function TabBar({
 
         <div className="live-indicator">
           <div className="pulse-dot" />
-          <span>Online</span>
+          <span>{isCloud ? 'Cloud' : 'Lokal'}</span>
         </div>
+
+        {/* Chip pengguna */}
+        <div className="user-chip" title={`Masuk sebagai ${user?.username}`}>
+          <UserCircle2 size={15} color="var(--primary)" />
+          <span className="user-chip-name">{user?.username}</span>
+          {isAdmin && (
+            <button className="user-chip-admin" onClick={onOpenAdmin} title="Panel Admin">
+              <Shield size={12} />
+              <span>Admin</span>
+            </button>
+          )}
+        </div>
+
+        <button className="icon-btn" onClick={onLogout} title="Keluar (Logout)">
+          <LogOut size={14} />
+        </button>
 
         <button
           className="icon-btn"

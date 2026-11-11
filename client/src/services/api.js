@@ -1,6 +1,87 @@
 const API_BASE = '/api';
 
+// ---------------------------------------------------------------------------
+// MODE CLOUD (Vercel Serverless) — FTP stateless, config dikirim per-request
+// ---------------------------------------------------------------------------
+export const isCloudMode = (() => {
+  const h = window.location.hostname;
+  return !['localhost', '127.0.0.1', '[::1]'].includes(h) && !h.endsWith('.local');
+})();
+
+async function cloudCall(endpoint, payload) {
+  const res = await fetch(`/api/ftp/${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+/** Upload satu file via XHR agar bisa memantau progress. */
+export function cloudUpload(config, destinationPath, file, onProgress = null) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api/ftp/upload?dest=${encodeURIComponent(destinationPath || '/')}&name=${encodeURIComponent(file.name)}`);
+    xhr.setRequestHeader('x-ftp-config', btoa(unescape(encodeURIComponent(JSON.stringify(config)))));
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) onProgress(e.loaded, e.total);
+      });
+    }
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); } catch { resolve({ success: true }); }
+      } else {
+        let msg = `HTTP ${xhr.status}`;
+        try { msg = JSON.parse(xhr.responseText).error || msg; } catch {}
+        reject(new Error(msg));
+      }
+    });
+    xhr.addEventListener('error', () => reject(new Error('Koneksi ke server upload terputus.')));
+    xhr.send(file);
+  });
+}
+
+/** Download satu file dari FTP ke browser. */
+export async function cloudDownload(config, remotePath) {
+  const res = await fetch('/api/ftp/download', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config, path: remotePath })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  const name = remotePath.split('/').filter(Boolean).pop() || 'file';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 export const api = {
+  // --- Cloud (serverless) FTP operations: config dikirim per-request ---
+  async ftpList(config, path) {
+    return cloudCall('list', { config, path: path || '/' });
+  },
+  async ftpMkdir(config, parentPath, name) {
+    return cloudCall('mkdir', { config, parentPath, name });
+  },
+  async ftpDelete(config, path, isDir) {
+    return cloudCall('delete', { config, path, isDir });
+  },
+  async ftpRename(config, oldPath, newPath) {
+    return cloudCall('rename', { config, oldPath, newPath });
+  },
+
   // Profiles
   async getProfiles() {
     const res = await fetch(`${API_BASE}/profiles`);
@@ -154,9 +235,12 @@ export const api = {
     const formData = new FormData();
     formData.append('sessionId', sessionId);
     formData.append('destinationPath', destinationPath || '/');
+    const meta = [];
     for (const file of files) {
       formData.append('files', file);
+      meta.push({ name: file.name, lastModified: file.lastModified });
     }
+    formData.append('fileMeta', JSON.stringify(meta));
     const res = await fetch(`${API_BASE}/ftp/upload-direct`, {
       method: 'POST',
       body: formData

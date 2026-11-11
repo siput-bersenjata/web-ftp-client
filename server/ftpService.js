@@ -21,7 +21,78 @@ function formatPermissions(perms, isDir) {
     const o = numToRwx(perms.world ?? perms.other ?? 4);
     return `${prefix}${u}${g}${o}`;
   }
-  return isDir ? 'drwxr-xr-x' : '-rw-r--r--';
+}
+
+function parseFtpDate(item) {
+  if (!item) return new Date().toISOString();
+
+  // 1. If basic-ftp or driver already provides a valid Date object with non-2001 year
+  if (item.modifiedAt instanceof Date && !isNaN(item.modifiedAt.getTime())) {
+    if (item.modifiedAt.getFullYear() !== 2001) {
+      return item.modifiedAt.toISOString();
+    }
+  }
+
+  // 2. Pick the raw string (rawModifiedAt or date)
+  const raw = item.rawModifiedAt || item.date;
+  if (!raw || typeof raw !== 'string') {
+    return new Date().toISOString();
+  }
+
+  const trimmed = raw.trim().replace(/\s+/g, ' ');
+  const months = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+  };
+
+  // Case A: UNIX ls format with time: "May 13 12:42" or "Oct 15 15:11"
+  const timeMatch = trimmed.match(/^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
+  if (timeMatch) {
+    const monStr = timeMatch[1].toLowerCase();
+    const day = parseInt(timeMatch[2], 10);
+    const hour = parseInt(timeMatch[3], 10);
+    const min = parseInt(timeMatch[4], 10);
+
+    if (months[monStr] !== undefined) {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      let candidate = new Date(currentYear, months[monStr], day, hour, min, 0);
+
+      // In unix ls, time without year means within past 6 months.
+      // If candidate is > 2 days in the future, it must be from the previous year.
+      const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+      if (candidate > twoDaysFromNow) {
+        candidate = new Date(currentYear - 1, months[monStr], day, hour, min, 0);
+      }
+      return candidate.toISOString();
+    }
+  }
+
+  // Case B: UNIX ls format with year: "Sep 18 2024" or "Apr 9 2025"
+  const yearMatch = trimmed.match(/^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})$/);
+  if (yearMatch) {
+    const monStr = yearMatch[1].toLowerCase();
+    const day = parseInt(yearMatch[2], 10);
+    const year = parseInt(yearMatch[3], 10);
+
+    if (months[monStr] !== undefined) {
+      const candidate = new Date(year, months[monStr], day, 0, 0, 0);
+      return candidate.toISOString();
+    }
+  }
+
+  // Case C: Standard parse fallback (e.g. ISO or Windows format: "05-13-26 12:42PM")
+  try {
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) {
+      if (d.getFullYear() === 2001 && !trimmed.includes('2001')) {
+        d.setFullYear(new Date().getFullYear());
+      }
+      return d.toISOString();
+    }
+  } catch {}
+
+  return new Date().toISOString();
 }
 
 class FTPService {
@@ -283,18 +354,7 @@ class FTPService {
       const items = list.map(item => {
         const isDir = item.isDirectory;
         const fullItemPath = path.posix.join(targetPath, item.name);
-        let modDate = new Date().toISOString();
-        if (item.rawModifiedAt) {
-          try {
-            const d = new Date(item.rawModifiedAt);
-            if (!isNaN(d.getTime())) modDate = d.toISOString();
-          } catch {}
-        } else if (item.modifiedAt) {
-          try {
-            const d = new Date(item.modifiedAt);
-            if (!isNaN(d.getTime())) modDate = d.toISOString();
-          } catch {}
-        }
+        const modDate = parseFtpDate(item);
 
         return {
           name: item.name,
@@ -366,6 +426,23 @@ class FTPService {
       }
     }
     report(total);
+
+    // Preserve modification time on remote file if available
+    try {
+      if (!stats.isDirectory() && stats.mtime) {
+        if (session.type === 'ftp') {
+          const d = stats.mtime;
+          const pad = (n) => String(n).padStart(2, '0');
+          const timeStr = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+          await session.client.send(`MDTM ${timeStr} ${remotePath}`);
+        } else if (session.type === 'sftp') {
+          const atimeSec = Math.floor(stats.atimeMs / 1000);
+          const mtimeSec = Math.floor(stats.mtimeMs / 1000);
+          await session.client.utimes(remotePath, atimeSec, mtimeSec);
+        }
+      }
+    } catch {}
+
     log(`226 Upload complete: ${name}`);
     return { success: true, remotePath };
   }
@@ -409,6 +486,17 @@ class FTPService {
       }
     }
     onProgress({ transferred: total, total, percent: 100 });
+
+    // Preserve original remote modification timestamp on downloaded local file
+    if (opts && opts.modifiedDate) {
+      try {
+        const mDate = new Date(opts.modifiedDate);
+        if (!isNaN(mDate.getTime())) {
+          await fs.utimes(localPath, mDate, mDate);
+        }
+      } catch {}
+    }
+
     log(`226 Download complete: ${name}`);
     return { success: true, localPath };
   }

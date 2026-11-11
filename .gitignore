@@ -1,9 +1,12 @@
 node_modules/
 client/node_modules/
 client/dist/
+.vercel/
 # Saved connection profiles contain FTP passwords
 data/profiles.json
 data/temp/
 .env
+.env.*
 *.log
+.DS_Store
 

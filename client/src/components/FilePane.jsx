@@ -51,9 +51,11 @@ export default function FilePane({
   onEditProfile = null,
   onTransferItem = null,
   onTransferSelected = null,
-  onDirectUpload = null
+  onDirectUpload = null,
+  onStageFiles = null
 }) {
   const fileInputRef = React.useRef(null);
+  const stageInputRef = React.useRef(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [isEditingPath, setIsEditingPath] = useState(false);
   const [inputPath, setInputPath] = useState(currentPath || '');
@@ -318,6 +320,10 @@ export default function FilePane({
         onDirectUpload(Array.from(e.dataTransfer.files));
         return;
       }
+      if (type === 'local' && onStageFiles) {
+        onStageFiles(Array.from(e.dataTransfer.files));
+        return;
+      }
     }
 
     // 2. Drag & drop between panes
@@ -449,24 +455,54 @@ export default function FilePane({
             />
           </>
         ) : (
-          <button
-            className="btn btn-primary"
-            style={{ height: '26px', fontSize: '11px', padding: '0 8px', gap: '4px' }}
-            title={selectedItems.length > 0 ? `Upload ${selectedItems.length} item terpilih ke FTP` : 'Pilih file/folder lalu klik Upload'}
-            disabled={selectedItems.length === 0}
-            onClick={() => onTransferSelected && onTransferSelected()}
-          >
-            <Upload size={13} />
-            <span>Upload {selectedItems.length > 0 ? `(${selectedItems.length})` : ''}</span>
-          </button>
+          <>
+            {/* Mode browser (cloud): tombol untuk menambah file ke staging */}
+            {onStageFiles && (
+              <>
+                <button
+                  className="btn btn-primary"
+                  style={{ height: '26px', fontSize: '11px', padding: '0 8px', gap: '4px' }}
+                  title="Pilih file dari perangkat ini untuk ditambahkan ke staging"
+                  onClick={() => stageInputRef.current?.click()}
+                >
+                  <Upload size={13} />
+                  <span>Tambah File</span>
+                </button>
+                <input
+                  type="file"
+                  multiple
+                  ref={stageInputRef}
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0 && onStageFiles) {
+                      onStageFiles(Array.from(e.target.files));
+                      e.target.value = '';
+                    }
+                  }}
+                />
+              </>
+            )}
+            <button
+              className="btn btn-primary"
+              style={{ height: '26px', fontSize: '11px', padding: '0 8px', gap: '4px' }}
+              title={selectedItems.length > 0 ? `Upload ${selectedItems.length} item terpilih ke FTP` : 'Pilih file/folder lalu klik Upload'}
+              disabled={selectedItems.length === 0}
+              onClick={() => onTransferSelected && onTransferSelected()}
+            >
+              <Upload size={13} />
+              <span>Upload {selectedItems.length > 0 ? `(${selectedItems.length})` : ''}</span>
+            </button>
+          </>
         )}
 
         <button
           className="icon-btn"
           title="Buat Folder Baru"
+          disabled={!onCreateFolder}
           onClick={() => {
+            if (!onCreateFolder) return;
             const name = prompt('Nama folder baru:');
-            if (name && onCreateFolder) onCreateFolder(name);
+            if (name) onCreateFolder(name);
           }}
         >
           <FolderPlus size={14} />

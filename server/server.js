@@ -245,7 +245,7 @@ app.post('/api/ftp/disconnect', async (req, res) => {
 // Direct upload from browser (drag & drop from desktop or file input)
 app.post('/api/ftp/upload-direct', upload.array('files'), (req, res) => {
   try {
-    const { sessionId, destinationPath } = req.body;
+    const { sessionId, destinationPath, fileMeta } = req.body;
     if (!sessionId) {
       return res.status(400).json({ error: 'sessionId diperlukan' });
     }
@@ -253,6 +253,31 @@ app.post('/api/ftp/upload-direct', upload.array('files'), (req, res) => {
     if (files.length === 0) {
       return res.status(400).json({ error: 'Tidak ada file yang diterima' });
     }
+
+    let metaMap = {};
+    if (fileMeta) {
+      try {
+        const parsed = typeof fileMeta === 'string' ? JSON.parse(fileMeta) : fileMeta;
+        if (Array.isArray(parsed)) {
+          parsed.forEach(m => {
+            if (m && m.name && m.lastModified) metaMap[m.name] = m.lastModified;
+          });
+        }
+      } catch {}
+    }
+
+    for (const f of files) {
+      const lm = metaMap[f.originalname];
+      if (lm) {
+        try {
+          const mDate = new Date(Number(lm));
+          if (!isNaN(mDate.getTime())) {
+            fs.utimesSync(f.path, mDate, mDate);
+          }
+        } catch {}
+      }
+    }
+
     const targetDir = destinationPath || '/';
     const tasks = files.map(file => ({
       name: file.originalname,

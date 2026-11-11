@@ -1,40 +1,86 @@
-# Web-Based Dual-Pane FTP Client Manager
+# Web FTP Client (Dual-Pane) — Cloud Ready
 
-A modern, desktop-grade web application for transferring files between local PC folders and FTP/FTPS/SFTP accounts. Features persistent local profile storage, instant Quick Connect, dual-pane file management, live drag-and-drop transfers, transfer queue with speed metrics, and real-time FTP logs.
+Aplikasi FTP/SFTP dua panel berbasis web: panel kiri untuk file lokal, panel kanan untuk file di
+server FTP. Tersedia dua mode:
 
----
+| Mode | Kapan dipakai | Backend |
+|------|--------------|---------|
+| **Server Lokal** | Dijalankan dari PC sendiri (`npm start`) | Node.js Express + WebSocket di `server/` |
+| **Cloud** | Ketika dibuka lewat link Vercel | Vercel Serverless Functions di `api/` (stateless) |
 
-## ✨ Features
+## Fitur
 
-- 🖥️ **PC Local & Remote FTP Explorer**: Side-by-side dual panes with breadcrumbs, path jumping, sorting, file type icons (Excel, Word, Archives, Images, etc.), and status summary.
-- ⚡ **Quick Connect & Persistent Profiles**: Saved profiles are stored on your machine and sync with `localStorage` so you never have to re-enter credentials upon returning.
-- 📝 **Create Connection Profile Wizard**:
-  - Select local PC folder (e.g. `C:\Users\bram\Documents`)
-  - Set Host IP / Domain, Username, Password, Anonymous mode
-  - Protocol support: FTP, FTPS (Explicit/Implicit), SFTP (SSH)
-  - Port & Passive mode toggles
-  - Home folder path
-  - Built-in "Test Connection" button with live status verification
-- 🗂️ **Tabbed Multi-Session Interface**: Switch effortlessly between multiple FTP servers.
-- 🔄 **Real-Time Transfer Engine & Queue**:
-  - Upload & download using center transfer buttons (`->` and `<-`) or direct drag-and-drop between panes.
-  - Queue manager with progress bars, transfer speeds (KB/s, MB/s), queue reordering (Move Up, Move Down), and item removal.
-- 📜 **Live Transfer Log Terminal**: Real-time FTP command stream (`USER`, `PASS`, `PASV`, `RETR`, `STOR`, `226 Transfer complete`) powered by WebSockets.
+- Dual-pane file manager (drag & drop, rename, mkdir, delete, filter, sort)
+- Upload/download dengan progress
+- Sistem akun: login gate, tombol **Daftar** (registrasi mandiri), panel **Admin**
+  untuk menambah/menghapus akun dan mengatur masa aktif akun
+- Profil koneksi FTP tersinkron antar perangkat (jika Firebase diaktifkan)
+- Tema terang (putih) & gelap (AMOLED murni #000) dengan tampilan 3D
 
----
+## Keamanan
 
-## 🚀 How to Run
+- `data/profiles.json` (berisi kredensial FTP) **di-gitignore** dan tidak pernah ikut ke repo
+- Kredensial FTP **tidak pernah disimpan di server** — dikirim dari browser per-request via HTTPS
+- Password akun disimpan sebagai SHA-256 + salt (tidak pernah plaintext di kode/repo)
+- Tidak ada API key atau secret di dalam repo
 
-### 1. Start the Server
-```powershell
-npm start
+## Menjalankan versi lokal
+
+```bash
+npm install
+cd client && npm install && cd ..
+npm run dev        # server :5000 + vite :5173
 ```
-This runs the unified Express backend and static client on **http://localhost:5000**.
 
-### 2. Development Mode (Hot Reload)
-To run both backend with auto-restart and Vite client with instant HMR:
-```powershell
-npm run dev
+atau jalankan `Jalankan-FTP.bat`.
+
+## Deploy ke Vercel
+
+1. Push repo ini ke GitHub.
+2. Di [vercel.com](https://vercel.com): **Add New → Project → Import** repo ini.
+   Framework preset: **Other** (sudah diatur `vercel.json`).
+3. Deploy. Fungsi API berada di `api/ftp/*` (basic-ftp + ssh2-sftp-client).
+
+Catatan batasan serverless (Vercel):
+
+- Koneksi FTP dibuat per-request (tidak ada sesi persistent / WebSocket).
+- Ukuran upload maksimum per request ±4.5MB (batas body request Vercel).
+- Panel lokal menampilkan **staging file dari browser** (pilih/drag file), bukan file PC.
+- Log transfer ditampilkan secara lokal di browser.
+
+## Sistem Akun
+
+- Login pertama kali: aplikasi akan meminta **Setup Awal** — buat akun Admin (kelola semua
+  akun & masa aktif) dan akun akses bersama (gate login).
+- Tombol **Daftar** membuat akun baru (masa aktif default 30 hari, dapat diubah admin).
+- **Admin** dapat menambah, menghapus, memperpanjang (+30/+90 hari) atau membuat akun permanen.
+- Password disimpan ter-hash; kredensial akun tidak ditulis di kode.
+
+## Firebase (sinkron antar perangkat)
+
+Secara default data (akun & profil FTP) disimpan di `localStorage` per perangkat.
+Untuk sinkron antar perangkat, aktifkan Firebase Firestore — gratis:
+
+1. Buat project di [Firebase Console](https://console.firebase.google.com)
+2. Tambahkan aplikasi Web → salin config
+3. Isi `client/src/config/firebaseConfig.js` (lihat komentar di file tersebut)
+4. Aktifkan **Firestore Database**
+5. Atur Firestore Rules sementara agar aplikasi bisa mengakses data:
+
 ```
-- Frontend Dev Server: **http://localhost:5173**
-- Backend API & WebSockets: **http://localhost:5000**
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users { allow read, write: if true; }
+    match /profiles { allow read, write: if true; }
+  }
+}
+```
+
+> Untuk produksi, perkencang rules (mis. hanya izinkan dokumen milik pemilik akun) —
+> lihat `CATATAN-SETUP.md`.
+
+## Catatan untuk pengembang berikutnya (AI/manual)
+
+Lihat **`CATATAN-SETUP.md`** — berisi arsitektur, keputusan penting, dan rencana
+peningkatan (Firebase, hardening rules, chunked upload untuk file besar).

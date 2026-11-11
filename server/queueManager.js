@@ -150,7 +150,7 @@ class QueueManager extends EventEmitter {
           nextTask.destinationPath,
           onProgress,
           onLog,
-          { isDirectory: nextTask.isDirectory, size: nextTask.size }
+          { isDirectory: nextTask.isDirectory, size: nextTask.size, modifiedDate: nextTask.modifiedDate }
         );
       }
 
