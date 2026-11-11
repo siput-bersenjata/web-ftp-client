@@ -87,11 +87,11 @@ export async function syncDefaultProfiles(user) {
     const d = defaults.find((x) => x.name === p.name);
     if (!d) continue;
     // Profil default baru, atau profil warisan hasil seed versi lama
-    // (host cocok + password masih kosong)
-    const isLegacyDefault = !p.password && p.host === d.host && p.ownerId === user?.id;
+    // (host cocok + milik user ini)
+    const isLegacyDefault = p.host === d.host && p.ownerId === user?.id;
     if (!p.isDefault && !isLegacyDefault) continue;
-    if (p.username !== d.username || p.host !== d.host || p.homeFolder !== d.homeFolder) {
-      if (p.password) continue; // sudah dipakai user — jangan diubah
+    if (!p.isDefault) {
+      // Seed lama: username/label pasti salah — perbaiki paksa (password milik user tetap)
       await saveProfile(user, {
         ...p,
         host: d.host,
@@ -100,8 +100,13 @@ export async function syncDefaultProfiles(user) {
         isDefault: true,
       });
       changed = true;
-    } else if (!p.isDefault) {
-      await saveProfile(user, { ...p, isDefault: true });
+    } else if (!p.password && (p.username !== d.username || p.host !== d.host || p.homeFolder !== d.homeFolder)) {
+      await saveProfile(user, {
+        ...p,
+        host: d.host,
+        username: d.username,
+        homeFolder: d.homeFolder,
+      });
       changed = true;
     }
   }
