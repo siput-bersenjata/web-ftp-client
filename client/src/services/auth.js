@@ -106,7 +106,11 @@ export async function isInitialized() {
   const shared = await sharedStorageReady();
   if (shared) {
     const st = await store.getStatus();
-    return !!st.initialized;
+    if (st.initialized) return true;
+    // Database server kosong tapi perangkat ini punya data lokal → arahkan ke login
+    // (login akan memigrasikannya secara otomatis)
+    const local = store.readLocalRaw();
+    return (local.users || []).length > 0;
   }
   const users = await store.listCollection(USERS);
   return users.length > 0;
