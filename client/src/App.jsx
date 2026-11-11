@@ -11,6 +11,7 @@ import { api, isCloudMode, cloudUpload, cloudDownload } from './services/api';
 import { wsClient } from './services/ws';
 import * as authService from './services/auth';
 import * as profilesService from './services/profiles';
+import * as store from './services/store';
 
 export default function App() {
   // ---------------------------------------------------------------
@@ -91,9 +92,17 @@ export default function App() {
     loadProfiles();
     if (!isCloud) loadLocalFiles();
 
+    // Ambil ulang data saat jendela/tab difokuskan — agar perubahan dari perangkat
+    // lain terlihat (database bersama)
+    const onFocus = () => {
+      store.invalidateCache();
+      loadProfiles();
+    };
+    window.addEventListener('focus', onFocus);
+
     if (isCloud) {
-      addLog('Mode Cloud aktif: FTP diakses melalui server aman (kredensial tidak disimpan di server).');
-      return;
+      addLog('Mode Cloud aktif: FTP diakses melalui server aman (kredensial tersinkron antar perangkat).');
+      return () => window.removeEventListener('focus', onFocus);
     }
 
     // Global keyboard shortcuts
@@ -138,6 +147,7 @@ export default function App() {
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('focus', onFocus);
       unsubscribe();
     };
   }, [user]);

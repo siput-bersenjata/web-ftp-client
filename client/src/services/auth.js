@@ -12,6 +12,7 @@
  */
 import * as store from './store';
 import { storageMode } from './store';
+import { FIREBASE_CONFIG } from '../config/firebaseConfig';
 
 const USERS = 'users';
 const SESSION_KEY = 'ftp_session_v1';
@@ -33,13 +34,41 @@ function makeSalt() {
 }
 
 // ---------------------------------------------------------------------------
-// Session
+// Mode database bersama (Vercel Blob) — lewat /api/db/*
 // ---------------------------------------------------------------------------
+const isCloudRuntime = (() => {
+  const h = window.location.hostname;
+  return !['localhost', '127.0.0.1', '[::1]'].includes(h) && !h.endsWith('.local');
+})();
+
+async function sharedStorageReady() {
+  if (!isCloudRuntime) return false;
+  const st = await store.getStatus();
+  return st.storage === 'blob';
+}
+
+/** Session menyertakan token (bukan password) agar bisa baca/tulis database bersama. */
+function sessionFromLogin(user, token) {
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    expiresAt: user.expiresAt || null,
+    token: token || null,
+    loggedAt: new Date().toISOString(),
+  };
+}
 export function getCurrentUser() {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const session = JSON.parse(raw);
+    // Sesi tanpa token pada mode cloud (dibuat sebelum fitur database bersama) tidak bisa
+    // membaca/menyimpan — paksa login ulang sekali.
+    if (isCloudRuntime && !FIREBASE_CONFIG && !session.token) {
+      logout();
+      return null;
+    }
     // Sesi admin/gate (expiresAt null) selalu aktif; user cek kedaluwarsa di sini
     if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
       logout();
@@ -51,7 +80,7 @@ export function getCurrentUser() {
   }
 }
 
-export function saveSession(user) {
+export function saveSession(user, token) {
   localStorage.setItem(
     SESSION_KEY,
     JSON.stringify({
@@ -59,6 +88,7 @@ export function saveSession(user) {
       username: user.username,
       role: user.role,
       expiresAt: user.expiresAt || null,
+      token: token || user.token || null,
       loggedAt: new Date().toISOString(),
     })
   );
@@ -66,21 +96,39 @@ export function saveSession(user) {
 
 export function logout() {
   localStorage.removeItem(SESSION_KEY);
+  store.invalidateCache();
 }
 
 // ---------------------------------------------------------------------------
 // Akun
 // ---------------------------------------------------------------------------
 export async function isInitialized() {
+  const shared = await sharedStorageReady();
+  if (shared) {
+    const st = await store.getStatus();
+    return !!st.initialized;
+  }
   const users = await store.listCollection(USERS);
   return users.length > 0;
 }
 
 /**
- * Setup awal: membuat akun admin & gate pertama jika database masih kosong.
+ * Setup awal: membuat akun admin pertama jika database masih kosong.
  * Dipanggil dari layar Setup (hanya muncul saat database kosong).
  */
-export async function initializeIfEmpty({ adminUsername, adminPassword, gateUsername, gatePassword }) {
+export async function initializeIfEmpty({ adminUsername, adminPassword }) {
+  const shared = await sharedStorageReady();
+  if (shared) {
+    const res = await fetch('/api/db/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: adminUsername, password: adminPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Setup gagal.');
+    store.invalidateCache();
+    return { created: 1, names: [adminUsername] };
+  }
   const users = await store.listCollection(USERS);
   if (users.length > 0) return { created: 0 };
 
@@ -93,15 +141,6 @@ export async function initializeIfEmpty({ adminUsername, adminPassword, gateUser
       expiresAt: null,
     });
     created.push(adminUsername.trim());
-  }
-  if (gateUsername && gatePassword) {
-    await createUserInternal({
-      username: gateUsername.trim(),
-      password: gatePassword,
-      role: 'gate',
-      expiresAt: null,
-    });
-    created.push(gateUsername.trim());
   }
   return { created: created.length, names: created };
 }
@@ -132,12 +171,56 @@ async function createUserInternal({ username, password, role, expiresAt, duratio
 
 /** Daftar akun baru (tombol "Daftar" di layar login). */
 export async function register({ username, password }) {
-  return createUserInternal({ username, password, role: 'user' });
+  const shared = await sharedStorageReady();
+  if (shared) {
+    const res = await fetch('/api/db/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Pendaftaran gagal.');
+    store.invalidateCache();
+    return data.user;
+  }
+  return createUserInternal({ username, password, role: 'user', durationDays: 30 });
 }
 
 /** Login — memvalidasi kredensial & masa aktif akun. */
 export async function login({ username, password }) {
   const clean = String(username).trim();
+  const shared = await sharedStorageReady();
+  if (shared) {
+    // Migrasi otomatis dari penyimpanan lokal perangkat ini (jika database masih kosong)
+    let st = await store.getStatus();
+    if (!st.initialized) {
+      const local = store.readLocalRaw();
+      if ((local.users || []).length > 0) {
+        const mig = await fetch('/api/db/migrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ database: local }),
+        });
+        const migData = await mig.json().catch(() => ({}));
+        if (!mig.ok) throw new Error(migData.error || 'Migrasi data lokal gagal.');
+        store.invalidateCache();
+      }
+    }
+
+    const res = await fetch('/api/db/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: clean, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || (data.empty ? 'Belum ada akun — gunakan Setup Awal.' : 'Login gagal.'));
+    }
+    store.invalidateCache();
+    saveSession({ ...data.user, token: data.token }, data.token);
+    return data.user;
+  }
+
   const id = clean.toLowerCase();
   const user = await store.getDoc(USERS, id);
   if (!user) throw new Error('Username tidak ditemukan.');

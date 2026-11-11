@@ -48,7 +48,11 @@ export function shouldSeedDefaults(user) {
 
 export async function seedDefaultProfiles(user) {
   const defaults = getDefaultProfiles();
+  const existing = await listProfilesOf(user);
   for (const d of defaults) {
+    // Jangan buat kembaran jika sudah ada profil dengan nama & host yang sama
+    const exists = existing.some((p) => p.name === d.name && p.host === d.host);
+    if (exists) continue;
     await saveProfile(user, {
       name: d.name,
       pcFolder: '',
