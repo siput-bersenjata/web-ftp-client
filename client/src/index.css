@@ -946,8 +946,9 @@ body {
 .bottom-dock {
   display: flex;
   flex-direction: column;
-  height: 220px;
-  min-height: 120px;
+  height: auto;
+  min-height: 38px;
+  max-height: 300px;
   background: var(--bg-surface);
   border-top: 1px solid var(--border-color);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
@@ -1002,8 +1003,10 @@ body {
 }
 
 .dock-content {
-  flex: 1;
+  flex: 0 1 auto;
   overflow: auto;
+  min-height: 0;
+  max-height: 245px;
   background: var(--bg-surface);
 }
 
@@ -1015,7 +1018,8 @@ body {
   color: var(--text-terminal);
   line-height: 1.6;
   background: var(--bg-terminal);
-  height: 100%;
+  min-height: 60px;
+  height: auto;
   overflow-y: auto;
   user-select: text;
 }
@@ -1925,7 +1929,10 @@ body {
   }
   .transfer-bar .transfer-action-btn:nth-child(1) svg { transform: rotate(-90deg); }
   .transfer-bar .transfer-action-btn:nth-child(2) svg { transform: rotate(90deg); }
-  .bottom-dock { height: 185px; }
+  .bottom-dock {
+    height: auto;
+    max-height: 44vh;       /* melebar sesuai isi log, tidak mentok tepi */
+  }
   .admin-create-grid { grid-template-columns: 1fr 1fr; }
 }
 
@@ -2138,7 +2145,11 @@ body {
 .bottom-dock.collapsed { height: 38px; }
 
 @media (max-width: 760px) {
-  .bottom-dock { height: 185px; min-height: 38px; }
+  .bottom-dock {
+    height: auto;
+    min-height: 38px;
+    max-height: 46vh;
+  }
   .dock-controls-bar {
     flex-wrap: nowrap;
     overflow-x: auto;
