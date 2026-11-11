@@ -153,6 +153,10 @@ export default function App() {
       if (userProfiles.length === 0 && profilesService.shouldSeedDefaults(user)) {
         await profilesService.seedDefaultProfiles(user);
         userProfiles = await profilesService.listProfiles(user);
+      } else if (profilesService.shouldSeedDefaults(user)) {
+        // Perbaiki profil default lama (mis. username seed versi sebelumnya salah)
+        await profilesService.syncDefaultProfiles(user);
+        userProfiles = await profilesService.listProfiles(user);
       }
 
       setProfiles(userProfiles);

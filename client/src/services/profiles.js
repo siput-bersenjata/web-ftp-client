@@ -47,16 +47,12 @@ export function shouldSeedDefaults(user) {
 }
 
 export async function seedDefaultProfiles(user) {
-  const defaults = [
-    { name: 'Hasil ekstrak', username: 'ftp-user-1', homeFolder: '/' },
-    { name: 'Harris', username: 'ftp-user-harris', homeFolder: '/' },
-    { name: 'Mercure', username: 'ftp-user-mercure', homeFolder: '/' },
-  ];
+  const defaults = getDefaultProfiles();
   for (const d of defaults) {
     await saveProfile(user, {
       name: d.name,
       pcFolder: '',
-      host: 'ftp.example.com',
+      host: d.host,
       username: d.username,
       password: '',
       protocol: 'ftp',
@@ -64,6 +60,50 @@ export async function seedDefaultProfiles(user) {
       passive: true,
       homeFolder: d.homeFolder,
       isAnonymous: false,
+      isDefault: true,
     });
   }
+}
+
+function getDefaultProfiles() {
+  return [
+    { name: 'Hasil ekstrak', host: 'ftp.example.com', username: 'ftp-user-1', homeFolder: '/' },
+    { name: 'Harris', host: 'ftp.example.com', username: 'ftp-user-harris', homeFolder: '/' },
+    { name: 'Mercure', host: 'ftp.example.com', username: 'ftp-user-mercure', homeFolder: '/' },
+  ];
+}
+
+/**
+ * Sinkronkan profil default yang sudah ada di perangkat user
+ * (mis. dibuat oleh versi lama dengan username salah / host berubah).
+ * Hanya memperbarui profil yang ditandai `isDefault` dan yang password-nya
+ * masih kosong — password yang sudah diisi user tidak pernah ditimpa.
+ */
+export async function syncDefaultProfiles(user) {
+  const all = await listProfilesOf(user);
+  const defaults = getDefaultProfiles();
+  let changed = false;
+  for (const p of all) {
+    const d = defaults.find((x) => x.name === p.name);
+    if (!d) continue;
+    // Profil default baru, atau profil warisan hasil seed versi lama
+    // (host cocok + password masih kosong)
+    const isLegacyDefault = !p.password && p.host === d.host && p.ownerId === user?.id;
+    if (!p.isDefault && !isLegacyDefault) continue;
+    if (p.username !== d.username || p.host !== d.host || p.homeFolder !== d.homeFolder) {
+      if (p.password) continue; // sudah dipakai user — jangan diubah
+      await saveProfile(user, {
+        ...p,
+        host: d.host,
+        username: d.username,
+        homeFolder: d.homeFolder,
+        isDefault: true,
+      });
+      changed = true;
+    } else if (!p.isDefault) {
+      await saveProfile(user, { ...p, isDefault: true });
+      changed = true;
+    }
+  }
+  return changed;
 }
