@@ -1872,8 +1872,22 @@ body {
 @media (max-width: 760px) {
   .sidebar { display: none; }
   .panes-wrapper { overflow-y: auto; }
-  .dual-panes { flex-direction: column; overflow: visible; flex: none; }
+  .dual-panes {
+    flex-direction: column-reverse;   /* FTP di atas, staging di bawah */
+    overflow: visible;
+    flex: none;
+  }
   .file-pane { flex: none; min-height: 48vh; }
+  /* Panah upload = ke atas (staging → FTP), panah download = ke bawah (FTP → staging) */
+  .transfer-bar {
+    flex-direction: row;
+    width: auto;
+    justify-content: center;
+    padding: 2px 4px;
+    gap: 18px;
+  }
+  .transfer-bar .transfer-action-btn:nth-child(1) svg { transform: rotate(-90deg); }
+  .transfer-bar .transfer-action-btn:nth-child(2) svg { transform: rotate(90deg); }
   .bottom-dock { height: 170px; }
   .admin-create-grid { grid-template-columns: 1fr 1fr; }
 }
