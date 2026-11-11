@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   X, Shield, UserPlus, Trash2, Clock, CalendarPlus, Loader2,
   AlertCircle, CheckCircle2, Users, Infinity as InfinityIcon,
-  Pencil, Save
+  Pencil, Save, ArrowLeft
 } from 'lucide-react';
 import * as auth from '../services/auth';
 
@@ -149,17 +149,23 @@ export default function AdminPanel({ open, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-window admin-window" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title-bar">
-          <div className="modal-title-wrap">
-            <Users size={16} color="var(--primary)" />
-            <span>Panel Admin — Kelola Akun</span>
+    <div className="admin-page" role="dialog" aria-modal="true" aria-label="Panel Admin">
+      {/* Header ala halaman — bukan modal yang terpotong */}
+      <header className="admin-page-header">
+        <button className="icon-btn admin-back-btn" onClick={onClose} title="Kembali ke aplikasi" aria-label="Kembali ke aplikasi">
+          <ArrowLeft size={17} />
+        </button>
+        <div className="admin-page-title">
+          <Users size={18} color="var(--primary)" />
+          <div>
+            <div className="admin-page-title-text">Panel Admin — Kelola Akun</div>
+            <div className="admin-page-subtitle">Kelola akun, masa aktif &amp; reset password</div>
           </div>
-          <button className="icon-btn" onClick={onClose} title="Tutup"><X size={14} /></button>
         </div>
+      </header>
 
-        <div className="admin-body">
+      <div className="admin-page-body">
+        <div className="admin-page-inner">
           <form className="admin-create-card" onSubmit={handleCreate}>
             <div className="admin-create-title"><UserPlus size={14} /> Tambah Akun Baru</div>
             <div className="admin-create-grid">
