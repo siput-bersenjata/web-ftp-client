@@ -1830,7 +1830,9 @@ body {
 /* Responsive kecil */
 @media (max-width: 760px) {
   .sidebar { display: none; }
-  .dual-panes { flex-direction: column; }
+  .panes-wrapper { overflow-y: auto; }
+  .dual-panes { flex-direction: column; overflow: visible; flex: none; }
+  .file-pane { flex: none; min-height: 48vh; }
   .bottom-dock { height: 170px; }
   .admin-create-grid { grid-template-columns: 1fr 1fr; }
 }
