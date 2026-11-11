@@ -67,6 +67,18 @@ export async function cloudDownload(config, remotePath) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+/** Status + statistik penggunaan website (tanpa data sensitif). */
+export async function dbStats() {
+  try {
+    const res = await fetch('/api/db?action=status', { cache: 'no-store' });
+    if (!res.ok) throw new Error('status error');
+    const data = await res.json();
+    return { logins: Number(data.logins) || 0 };
+  } catch {
+    return { logins: 0 };
+  }
+}
+
 /** Heartbeat kehadiran — dipanggil berkala oleh aplikasi & layar login. */
 export async function dbHeartbeat() {
   let token = null;

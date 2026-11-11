@@ -1716,9 +1716,26 @@ body {
   border: 1px solid rgba(16, 185, 129, 0.30);
   padding: 3px 10px;
   border-radius: 999px;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
+}
+
+.login-usage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  padding: 3px 10px;
+  border-radius: 999px;
   margin-bottom: 10px;
   letter-spacing: 0.2px;
 }
+
+.login-usage-chip b { color: var(--primary); font-weight: 800; }
 
 .login-active-chip b { font-weight: 800; }
 
@@ -2224,3 +2241,115 @@ body {
 
 .narrow-logout { color: var(--text-secondary); }
 .narrow-logout:hover { color: var(--danger); border-color: var(--danger); }
+
+/* ==========================================================================
+   HEADER PILL — semua chip di header diukur SAMA (simetris)
+   ========================================================================== */
+.header-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.header-status-group .icon-btn,
+.narrow-actions .icon-btn {
+  height: 32px;
+  width: 32px;
+  border-radius: 9px;
+}
+
+/* Sisa masa aktif */
+.duration-perm {
+  color: var(--primary);
+  border-color: rgba(59, 130, 246, 0.35);
+  background: var(--primary-light);
+}
+
+.duration-ok {
+  color: var(--success);
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.duration-warn {
+  color: #d97706;
+  border-color: rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.09);
+}
+
+.duration-danger {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.09);
+}
+
+@media (max-width: 760px) {
+  .duration-narrow {
+    height: 26px;
+    padding: 0 8px;
+    font-size: 10px;
+    gap: 4px;
+  }
+}
+
+/* ==========================================================================
+   PANEL ADMIN — panel edit detail per akun
+   ========================================================================== */
+.admin-user-edit {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--primary);
+  border-radius: 10px;
+  padding: 12px;
+  margin: -4px 0 10px 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.admin-edit-expiry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-edit-expiry .form-input {
+  width: 90px;
+}
+
+.admin-edit-perm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.admin-edit-days {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}

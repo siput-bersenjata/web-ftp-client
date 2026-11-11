@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Network, Lock, User, UserPlus, Moon, Sun, KeyRound,
-  AlertCircle, CheckCircle2, Loader2, ArrowRight, Info, Users
+  AlertCircle, CheckCircle2, Loader2, ArrowRight, Info, Users, History
 } from 'lucide-react';
 import * as auth from '../services/auth';
 import { storageMode } from '../services/store';
-import { dbHeartbeat } from '../services/api';
+import { dbHeartbeat, dbStats } from '../services/api';
 
 /**
  * Layar Login / Daftar / Setup Awal.
@@ -20,6 +20,7 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
   const [activeCount, setActiveCount] = useState(0);
+  const [usageCount, setUsageCount] = useState(0);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -39,9 +40,12 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
         setStage('login');
       });
 
-    // Poll jumlah user aktif (setiap 30 detik)
+    // Poll jumlah user aktif & statistik penggunaan (setiap 30 detik)
     let cancelled = false;
-    const poll = () => dbHeartbeat().then((n) => { if (!cancelled) setActiveCount(n); });
+    const poll = () => {
+      dbHeartbeat().then((n) => { if (!cancelled) setActiveCount(n); });
+      dbStats().then((s) => { if (!cancelled) setUsageCount(s.logins || 0); });
+    };
     poll();
     const id = setInterval(poll, 30000);
     return () => { cancelled = true; clearInterval(id); };
@@ -111,6 +115,10 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
           <div className="login-active-chip" title="Jumlah pengguna yang sedang online">
             <Users size={12} />
             <span><b>{activeCount}</b> user aktif</span>
+          </div>
+          <div className="login-usage-chip" title="Jumlah login sukses oleh seluruh pengguna">
+            <History size={12} />
+            <span>Telah digunakan <b>{usageCount.toLocaleString('id-ID')}</b> kali</span>
           </div>
           <div className="brand-logo login-logo"><Network size={22} /></div>
           <h1>FTP Web Client</h1>

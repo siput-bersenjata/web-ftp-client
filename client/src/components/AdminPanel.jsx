@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   X, Shield, UserPlus, Trash2, Clock, CalendarPlus, Loader2,
-  AlertCircle, CheckCircle2, Users, Infinity as InfinityIcon
+  AlertCircle, CheckCircle2, Users, Infinity as InfinityIcon,
+  Pencil, Save
 } from 'lucide-react';
 import * as auth from '../services/auth';
 
@@ -21,6 +22,13 @@ export default function AdminPanel({ open, onClose }) {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('user');
   const [newDuration, setNewDuration] = useState('30'); // '30' | '90' | '365' | '0' = permanen
+
+  // Mode edit per akun (expand inline)
+  const [expandedId, setExpandedId] = useState(null);
+  const [editRole, setEditRole] = useState('user');
+  const [editDays, setEditDays] = useState('30');
+  const [editPermanent, setEditPermanent] = useState(false);
+  const [editPassword, setEditPassword] = useState('');
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -97,6 +105,40 @@ export default function AdminPanel({ open, onClose }) {
     }
   };
 
+  const openEdit = (u) => {
+    setExpandedId(u.id);
+    setEditRole(u.role || 'user');
+    setEditPassword('');
+    if (!u.expiresAt) {
+      setEditPermanent(true);
+      setEditDays('30');
+    } else {
+      setEditPermanent(false);
+      const remaining = Math.ceil((new Date(u.expiresAt).getTime() - Date.now()) / 86400000);
+      setEditDays(String(Math.max(1, remaining)));
+    }
+  };
+
+  const saveEdit = async (u) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const patch = { role: editRole };
+      patch.expiresAt = editPermanent
+        ? null
+        : new Date(Date.now() + Math.max(1, Number(editDays) || 1) * 86400000).toISOString();
+      if (editPassword.trim()) patch.password = editPassword.trim();
+      await auth.updateUserDetails(u.id, patch);
+      setNotice(`Akun "${u.username}" diperbarui.`);
+      setExpandedId(null);
+      await load();
+    } catch (err) {
+      setError(err.message || 'Gagal menyimpan perubahan.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const expiryBadge = (u) => {
     if (!u.expiresAt) return <span className="badge badge-ok"><InfinityIcon size={11} /> Permanen</span>;
     const exp = new Date(u.expiresAt).getTime();
@@ -161,7 +203,8 @@ export default function AdminPanel({ open, onClose }) {
               {busy && <Loader2 size={13} className="animate-spin" />}
             </div>
             {users.map((u) => (
-              <div className="admin-user-row" key={u.id}>
+              <React.Fragment key={u.id}>
+              <div className="admin-user-row">
                 <div className="admin-user-main">
                   <span className="admin-user-name">{u.username}</span>
                   <span className={`badge ${u.role === 'admin' ? 'badge-admin' : u.role === 'gate' ? 'badge-info' : ''}`}>
@@ -173,9 +216,61 @@ export default function AdminPanel({ open, onClose }) {
                   <button className="btn btn-sm" disabled={busy} onClick={() => handleExtend(u, 30)} title="Perpanjang 30 hari">+30 hari</button>
                   <button className="btn btn-sm" disabled={busy} onClick={() => handleExtend(u, 90)} title="Perpanjang 90 hari">+90 hari</button>
                   <button className="btn btn-sm" disabled={busy} onClick={() => handleExtend(u, null)} title="Jadikan permanen">Permanen</button>
+                  <button className="btn btn-sm" disabled={busy} onClick={() => (expandedId === u.id ? setExpandedId(null) : openEdit(u))} title="Edit detail akun"><Pencil size={13} /></button>
                   <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => handleDelete(u)} title="Hapus akun"><Trash2 size={13} /></button>
                 </div>
               </div>
+
+              {expandedId === u.id && (
+                <div className="admin-user-edit">
+                  <div className="admin-edit-grid">
+                    <div className="form-group">
+                      <label>Peran</label>
+                      <select className="form-input" value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+                        <option value="user">Pengguna</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Masa Aktif</label>
+                      <div className="admin-edit-expiry">
+                        <label className="admin-edit-perm">
+                          <input type="checkbox" checked={editPermanent} onChange={(e) => setEditPermanent(e.target.checked)} />
+                          <span>Permanen</span>
+                        </label>
+                        {!editPermanent && (
+                          <input
+                            type="number"
+                            min={1}
+                            className="form-input"
+                            value={editDays}
+                            onChange={(e) => setEditDays(e.target.value)}
+                          />
+                        )}
+                        {!editPermanent && <span className="admin-edit-days">hari lagi</span>}
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Reset Password</label>
+                      <input
+                        className="form-input"
+                        type="password"
+                        placeholder="Kosongkan jika tidak diganti"
+                        value={editPassword}
+                        onChange={(e) => setEditPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="admin-edit-actions">
+                    <button className="btn" disabled={busy} onClick={() => setExpandedId(null)}>Batal</button>
+                    <button className="btn btn-primary" disabled={busy} onClick={() => saveEdit(u)}>
+                      {busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      <span>Simpan Perubahan</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+              </React.Fragment>
             ))}
             {users.length === 0 && !busy && (
               <div className="admin-empty">Belum ada akun terdaftar.</div>

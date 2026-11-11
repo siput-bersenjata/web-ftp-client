@@ -276,6 +276,32 @@ export async function setUserExpiry(id, days) {
   return user;
 }
 
+/** Admin: edit detail akun — peran, masa aktif, reset password. */
+export async function updateUserDetails(id, patch = {}) {
+  const user = await store.getDoc(USERS, id);
+  if (!user) throw new Error('Akun tidak ditemukan.');
+
+  const all = await store.listCollection(USERS);
+
+  // Jangan menurunkan admin terakhir menjadi bukan admin
+  if (patch.role && user.role === 'admin' && patch.role !== 'admin') {
+    const adminCount = all.filter((u) => u.role === 'admin').length;
+    if (adminCount <= 1) throw new Error('Tidak boleh menurunkan satu-satunya akun admin.');
+  }
+
+  const merged = { ...user };
+  if (patch.role) merged.role = patch.role;
+  if (patch.expiresAt !== undefined) merged.expiresAt = patch.expiresAt;
+  if (patch.password) {
+    if (String(patch.password).length < 4) throw new Error('Password minimal 4 karakter.');
+    const salt = makeSalt();
+    merged.salt = salt;
+    merged.hash = await hashPassword(salt, patch.password);
+  }
+  await store.setDoc(USERS, id, merged);
+  return merged;
+}
+
 /** Admin: buat akun dengan masa aktif tertentu. */
 export async function createUserByAdmin({ username, password, role = 'user', durationDays = null }) {
   return createUserInternal({ username, password, role, durationDays });

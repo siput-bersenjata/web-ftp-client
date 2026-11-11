@@ -61,10 +61,10 @@ module.exports = async function handler(req, res) {
       }
 
       case 'status': {
-        if (!db.isConfigured()) return ok(res, { storage: 'local', initialized: true });
+        if (!db.isConfigured()) return ok(res, { storage: 'local', initialized: true, logins: 0 });
         const data = await db.readDb();
         const initialized = !!(data && data.users && data.users.length > 0);
-        return ok(res, { storage: 'blob', initialized });
+        return ok(res, { storage: 'blob', initialized, logins: (data && data.stats && data.stats.loginCount) || 0 });
       }
 
       case 'setup': {
@@ -141,6 +141,10 @@ module.exports = async function handler(req, res) {
         const user = db.getUserByName(data, username);
         if (!user) return res.status(401).json({ error: 'Username tidak ditemukan.' });
         if (!db.verifyUserPassword(user, password)) return res.status(401).json({ error: 'Password salah.' });
+
+        // Hitung setiap login sukses sebagai 1 penggunaan website
+        data.stats.loginCount = (data.stats.loginCount || 0) + 1;
+        await db.writeDb(data);
         if (user.expiresAt) {
           const exp = new Date(user.expiresAt).getTime();
           if (!Number.isNaN(exp) && exp < Date.now()) {

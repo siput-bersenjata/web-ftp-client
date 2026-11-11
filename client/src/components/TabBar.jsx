@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, X, Sun, Moon, Server, HardDrive, Network, Globe, Clock, LifeBuoy,
-  ExternalLink, LogOut, Shield, UserCircle2, Cloud, Menu, Users
+  ExternalLink, LogOut, Shield, UserCircle2, Cloud, Menu, Users,
+  Timer, Infinity as InfinityIcon, AlertCircle
 } from 'lucide-react';
 
 export default function TabBar({
@@ -48,6 +49,33 @@ export default function TabBar({
       hour12: false
     });
   };
+
+  // Sisa masa aktif akun (ditampilkan sebagai chip di header)
+  const durationInfo = (() => {
+    if (!user) return null;
+    if (!user.expiresAt) return { label: 'Akses Permanen', cls: 'duration-perm', icon: 'inf' };
+    const exp = new Date(user.expiresAt).getTime();
+    const days = Math.ceil((exp - Date.now()) / 86400000);
+    if (days <= 0) return { label: 'Kedaluwarsa', cls: 'duration-danger', icon: 'warn' };
+    if (days <= 7) return { label: `Sisa ${days} hari`, cls: 'duration-warn', icon: 'clock' };
+    return { label: `Sisa ${days} hari`, cls: 'duration-ok', icon: 'clock' };
+  })();
+
+  const durationIcon = (size = 13) => {
+    if (durationInfo?.icon === 'inf') return <InfinityIcon size={size} />;
+    if (durationInfo?.icon === 'warn') return <AlertCircle size={size} />;
+    return <Timer size={size} />;
+  };
+
+  // Chip sisa masa aktif — dipakai di header lebar maupun sempit
+  const DurationChip = ({ className = '' }) => (
+    durationInfo ? (
+      <div className={`header-pill ${durationInfo.cls} ${className}`} title="Sisa masa aktif akun Anda">
+        {durationIcon(13)}
+        <span>{durationInfo.label}</span>
+      </div>
+    ) : null
+  );
 
   const formatDate = (date) => {
     return date.toLocaleDateString('id-ID', {
@@ -109,40 +137,30 @@ export default function TabBar({
         })}
       </div>
 
-      {/* Right Controls: Bantuan Dev, Live clock, status & Theme toggle */}
+      {/* Right Controls: sisa masa aktif, clock, status, user aktif, akun, tema */}
       <div className="header-status-group">
-        {/* Bantuan Dev Button */}
-        <a
-          href="https://salshya-club.vercel.app/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-help-dev"
-          title="Bantuan & Dukungan Developer (Salshya | SL Store Official)"
-        >
-          <LifeBuoy size={13} color="var(--primary)" />
-          <span>Bantuan Dev</span>
-          <ExternalLink size={10} style={{ opacity: 0.7 }} />
-        </a>
+        {/* Sisa masa aktif akun */}
+        <DurationChip />
 
         {/* Live Clock Widget */}
-        <div className="clock-widget" title={formatDate(currentTime)}>
+        <div className="clock-widget header-pill" title={formatDate(currentTime)}>
           <Clock size={13} color="var(--primary)" />
           <span>{formatTime(currentTime)}</span>
         </div>
 
-        <div className="live-indicator">
+        <div className="live-indicator header-pill">
           <div className="pulse-dot" />
           <span>{isCloud ? 'Cloud' : 'Lokal'}</span>
         </div>
 
         {/* Jumlah user aktif (wide header) */}
-        <div className="active-users-chip" title="Jumlah pengguna yang sedang online">
+        <div className="active-users-chip header-pill" title="Jumlah pengguna yang sedang online">
           <Users size={13} color="var(--primary)" />
           <span><b>{activeCount}</b> aktif</span>
         </div>
 
         {/* Chip pengguna */}
-        <div className="user-chip" title={`Masuk sebagai ${user?.username}`}>
+        <div className="user-chip header-pill" title={`Masuk sebagai ${user?.username}`}>
           <UserCircle2 size={15} color="var(--primary)" />
           <span className="user-chip-name">{user?.username}</span>
           {isAdmin && (
@@ -166,9 +184,10 @@ export default function TabBar({
         </button>
       </div>
 
-      {/* Aksi ringkas untuk layar sempit: user aktif + tombol keluar (ikon pintu) selalu terlihat;
+      {/* Aksi ringkas untuk layar sempit: sisa masa aktif + user aktif + tombol keluar (ikon pintu);
           sisanya pindah ke burger menu */}
       <div className="narrow-actions">
+        <DurationChip className="duration-narrow" />
         <div className="active-users-chip narrow-chip" title="Jumlah pengguna yang sedang online">
           <Users size={13} color="var(--primary)" />
           <span><b>{activeCount}</b></span>

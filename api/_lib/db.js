@@ -62,6 +62,8 @@ function normalizeDb(db) {
   const out = db && typeof db === 'object' ? db : {};
   out.users = Array.isArray(out.users) ? out.users : [];
   out.profiles = Array.isArray(out.profiles) ? out.profiles : [];
+  out.stats = out.stats && typeof out.stats === 'object' ? out.stats : {};
+  if (typeof out.stats.loginCount !== 'number') out.stats.loginCount = 0;
   if (!out._secret) out._secret = makeSecret();
   return out;
 }
