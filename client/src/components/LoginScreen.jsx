@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Network, Lock, User, UserPlus, Moon, Sun, KeyRound,
-  AlertCircle, CheckCircle2, Loader2, ArrowRight, Info
+  AlertCircle, CheckCircle2, Loader2, ArrowRight, Info, Users
 } from 'lucide-react';
 import * as auth from '../services/auth';
 import { storageMode } from '../services/store';
+import { dbHeartbeat } from '../services/api';
 
 /**
  * Layar Login / Daftar / Setup Awal.
@@ -18,6 +19,7 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
+  const [activeCount, setActiveCount] = useState(0);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +38,13 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
         setError(err.message || 'Gagal membaca database. Pastikan config Firebase / Rules sudah benar.');
         setStage('login');
       });
+
+    // Poll jumlah user aktif (setiap 30 detik)
+    let cancelled = false;
+    const poll = () => dbHeartbeat().then((n) => { if (!cancelled) setActiveCount(n); });
+    poll();
+    const id = setInterval(poll, 30000);
+    return () => { cancelled = true; clearInterval(id); };
   }, []);
 
   const handleLogin = async (e) => {
@@ -99,6 +108,10 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
 
       <div className="login-card">
         <div className="login-brand">
+          <div className="login-active-chip" title="Jumlah pengguna yang sedang online">
+            <Users size={12} />
+            <span><b>{activeCount}</b> user aktif</span>
+          </div>
           <div className="brand-logo login-logo"><Network size={22} /></div>
           <h1>FTP Web Client</h1>
           <p>Kelola file server FTP Anda dari mana saja</p>

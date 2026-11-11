@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, X, Sun, Moon, Server, HardDrive, Network, Globe, Clock, LifeBuoy,
-  ExternalLink, LogOut, Shield, UserCircle2, Cloud, Menu
+  ExternalLink, LogOut, Shield, UserCircle2, Cloud, Menu, Users
 } from 'lucide-react';
 
 export default function TabBar({
@@ -16,7 +16,8 @@ export default function TabBar({
   isAdmin = false,
   isCloud = false,
   onLogout,
-  onOpenAdmin
+  onOpenAdmin,
+  activeCount = 0
 }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
@@ -134,6 +135,12 @@ export default function TabBar({
           <span>{isCloud ? 'Cloud' : 'Lokal'}</span>
         </div>
 
+        {/* Jumlah user aktif (wide header) */}
+        <div className="active-users-chip" title="Jumlah pengguna yang sedang online">
+          <Users size={13} color="var(--primary)" />
+          <span><b>{activeCount}</b> aktif</span>
+        </div>
+
         {/* Chip pengguna */}
         <div className="user-chip" title={`Masuk sebagai ${user?.username}`}>
           <UserCircle2 size={15} color="var(--primary)" />
@@ -159,16 +166,28 @@ export default function TabBar({
         </button>
       </div>
 
-      {/* Burger Menu — tampil saat ruang header sempit (semua aksi pindah ke sini) */}
-      <div className="menu-burger-wrap" ref={menuRef}>
-        <button
-          className="icon-btn header-burger"
-          onClick={() => setMenuOpen((v) => !v)}
-          title={menuOpen ? 'Tutup menu' : 'Menu lainnya'}
-          aria-expanded={menuOpen}
-        >
-          {menuOpen ? <X size={15} /> : <Menu size={15} />}
+      {/* Aksi ringkas untuk layar sempit: user aktif + tombol keluar (ikon pintu) selalu terlihat;
+          sisanya pindah ke burger menu */}
+      <div className="narrow-actions">
+        <div className="active-users-chip narrow-chip" title="Jumlah pengguna yang sedang online">
+          <Users size={13} color="var(--primary)" />
+          <span><b>{activeCount}</b></span>
+        </div>
+
+        <button className="icon-btn narrow-logout" onClick={onLogout} title="Keluar (Logout)" aria-label="Keluar">
+          <LogOut size={15} />
         </button>
+
+        {/* Burger Menu — tampil saat ruang header sempit */}
+        <div className="menu-burger-wrap" ref={menuRef}>
+          <button
+            className="icon-btn header-burger"
+            onClick={() => setMenuOpen((v) => !v)}
+            title={menuOpen ? 'Tutup menu' : 'Menu lainnya'}
+            aria-expanded={menuOpen}
+          >
+            {menuOpen ? <X size={15} /> : <Menu size={15} />}
+          </button>
 
         {menuOpen && (
           <div className="mobile-menu" role="menu">
@@ -197,6 +216,12 @@ export default function TabBar({
               <span>{isCloud ? 'Mode Cloud (Vercel)' : 'Mode Lokal'}</span>
             </div>
 
+            {/* User aktif — selalu tersedia di menu burger */}
+            <div className="menu-item static">
+              <Users size={15} color="var(--primary)" />
+              <span><b>{activeCount}</b> user aktif</span>
+            </div>
+
             <div className="menu-divider" />
 
             <div className="menu-item static">
@@ -220,13 +245,9 @@ export default function TabBar({
               {theme === 'dark' ? <Sun size={15} color="#f59e0b" /> : <Moon size={15} color="#6366f1" />}
               <span>{theme === 'dark' ? 'Ganti ke Light Mode' : 'Ganti ke Dark Mode'}</span>
             </button>
-
-            <button className="menu-item danger" onClick={() => { setMenuOpen(false); onLogout && onLogout(); }}>
-              <LogOut size={15} />
-              <span>Keluar (Logout)</span>
-            </button>
           </div>
         )}
+        </div>
       </div>
     </header>
   );

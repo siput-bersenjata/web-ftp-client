@@ -7,7 +7,7 @@ import BottomDock from './components/BottomDock';
 import CreateProfileModal from './components/CreateProfileModal';
 import LoginScreen from './components/LoginScreen';
 import AdminPanel from './components/AdminPanel';
-import { api, isCloudMode, cloudUpload, cloudDownload } from './services/api';
+import { api, isCloudMode, cloudUpload, cloudDownload, dbHeartbeat } from './services/api';
 import { wsClient } from './services/ws';
 import * as authService from './services/auth';
 import * as profilesService from './services/profiles';
@@ -20,6 +20,7 @@ export default function App() {
   const [user, setUser] = useState(() => authService.getCurrentUser());
   const isAdmin = user?.role === 'admin';
   const [adminOpen, setAdminOpen] = useState(false);
+  const [activeCount, setActiveCount] = useState(0);
 
   // Theme state: 'light' (putih) default; 'dark' (AMOLED) jika user memilih sebelumya
   const [theme, setTheme] = useState(() => {
@@ -85,6 +86,18 @@ export default function App() {
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
+
+  // Heartbeat: tandai sesi online & baca jumlah user aktif (setiap 30 detik)
+  useEffect(() => {
+    if (!user || !isCloud) return undefined;
+    let cancelled = false;
+    const beat = () => { dbHeartbeat().then((n) => { if (!cancelled) setActiveCount(n); }); };
+    beat();
+    const id = setInterval(beat, 30000);
+    const onFocus = () => beat();
+    window.addEventListener('focus', onFocus);
+    return () => { cancelled = true; clearInterval(id); window.removeEventListener('focus', onFocus); };
+  }, [user, isCloud]);
 
   // 1. Initial Load: Fetch profiles & Local directory
   useEffect(() => {
@@ -798,6 +811,7 @@ export default function App() {
         onCloseTab={handleCloseTab}
         onOpenCreateModal={handleOpenCreateModal}
         theme={theme}
+        activeCount={activeCount}
         onToggleTheme={toggleTheme}
         user={user}
         isAdmin={isAdmin}

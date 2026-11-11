@@ -35,6 +35,31 @@ module.exports = async function handler(req, res) {
     const b = req.method === 'POST' ? body(req) : {};
 
     switch (action) {
+      case 'beat': {
+        // Heartbeat kehadiran: hitung user aktif dalam 5 menit terakhir.
+        // Tanpa token → hanya balas jumlah (tidak membocorkan nama user).
+        if (!db.isConfigured()) return ok(res, { active: 0 });
+        const data = await db.readDb();
+        if (!data) return ok(res, { active: 0 });
+        const now = Date.now();
+        const TTL = 5 * 60 * 1000;
+        data.active = (Array.isArray(data.active) ? data.active : []).filter(
+          (a) => a && a.ts && now - new Date(a.ts).getTime() < TTL
+        );
+        const token = b.token;
+        if (token) {
+          const user = db.verifyToken(data, token);
+          if (user) {
+            const key = db.userKey(user);
+            data.active = data.active.filter((a) => a.key !== key);
+            data.active.push({ key, name: user.username, role: user.role || 'user', ts: now });
+            if (data.active.length > 500) data.active = data.active.slice(-500);
+            await db.writeDb(data);
+          }
+        }
+        return ok(res, { active: data.active.length });
+      }
+
       case 'status': {
         if (!db.isConfigured()) return ok(res, { storage: 'local', initialized: true });
         const data = await db.readDb();

@@ -67,6 +67,28 @@ export async function cloudDownload(config, remotePath) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+/** Heartbeat kehadiran — dipanggil berkala oleh aplikasi & layar login. */
+export async function dbHeartbeat() {
+  let token = null;
+  for (const [key, storage] of [['ftp_session_v1', localStorage], ['ftp_session_tab_v1', sessionStorage]]) {
+    try {
+      const s = JSON.parse(storage.getItem(key) || 'null');
+      if (s && s.token) { token = s.token; break; }
+    } catch { /* abaikan */ }
+  }
+  try {
+    const res = await fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'beat', token })
+    });
+    const data = await res.json().catch(() => ({}));
+    return Number(data.active) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 export const api = {
   // --- Cloud (serverless) FTP operations: config dikirim per-request ---
   async ftpList(config, path) {

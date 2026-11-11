@@ -1669,6 +1669,23 @@ body {
   border-radius: 10px;
 }
 
+.login-active-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--success);
+  background: rgba(16, 185, 129, 0.10);
+  border: 1px solid rgba(16, 185, 129, 0.30);
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+  letter-spacing: 0.2px;
+}
+
+.login-active-chip b { font-weight: 800; }
+
 .remember-row {
   display: flex;
   align-items: flex-start;
@@ -1889,7 +1906,7 @@ body {
   }
   .transfer-bar .transfer-action-btn:nth-child(1) svg { transform: rotate(-90deg); }
   .transfer-bar .transfer-action-btn:nth-child(2) svg { transform: rotate(90deg); }
-  .bottom-dock { height: 170px; }
+  .bottom-dock { height: 185px; }
   .admin-create-grid { grid-template-columns: 1fr 1fr; }
 }
 
@@ -2043,10 +2060,10 @@ body {
   /* Tab strip digantikan mobile-profile-bar agar tidak makan tempat */
   .tab-bar-container { display: none; }
   .top-navbar {
-    padding: 5px 8px;
+    padding: 5px 22px;
     min-height: 38px;
-    justify-content: center;
-    gap: clamp(64px, 28vw, 220px);
+    justify-content: space-between;
+    gap: 0;
   }
   .icon-btn { width: 26px; height: 26px; }
 }
@@ -2094,3 +2111,73 @@ body {
   .pane-more-wrap { display: block; }
   .pane-nav-bar { padding: 6px 8px; gap: 4px; }
 }
+
+/* ==========================================================================
+   BOTTOM DOCK DI PONSEL — kontrol bisa di-scroll horizontal, tabel queue
+   punya lebar minimum & di-scroll, tinggi dock disesuaikan
+   ========================================================================== */
+.bottom-dock.collapsed { height: 38px; }
+
+@media (max-width: 760px) {
+  .bottom-dock { height: 185px; min-height: 38px; }
+  .dock-controls-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 5px 8px;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .dock-controls-bar .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 3px 9px;
+    font-size: 11px;
+  }
+  .queue-table {
+    min-width: 640px;
+    width: max-content;
+  }
+  .dock-content {
+    overflow: auto;
+  }
+  .dock-tab { padding: 6px 10px; font-size: 11px; }
+}
+
+/* ==========================================================================
+   USER AKTIF — chip online counter (beranda) & penyempit layout
+   ========================================================================== */
+.active-users-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+
+.active-users-chip b { color: var(--text-main); }
+.narrow-chip b { font-weight: 700; }
+
+.narrow-actions {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1100px) {
+  .narrow-actions { display: flex; }
+}
+
+@media (max-width: 760px) {
+  .narrow-actions .narrow-chip { display: none; }  /* user aktif pindah ke dalam burger */
+}
+
+.narrow-logout { color: var(--text-secondary); }
+.narrow-logout:hover { color: var(--danger); border-color: var(--danger); }

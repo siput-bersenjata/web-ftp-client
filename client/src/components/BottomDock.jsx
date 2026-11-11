@@ -64,7 +64,7 @@ export default function BottomDock({
   const activeTransfersCount = queue.filter((t) => t.status === 'Transferring' || t.status === 'Queued').length;
 
   return (
-    <div className="bottom-dock" style={{ height: isCollapsed ? '38px' : '230px' }}>
+    <div className={`bottom-dock ${isCollapsed ? 'collapsed' : ''}`}>
       {/* Dock Header Tabs */}
       <div className="dock-header-bar">
         <div className="dock-tabs">
