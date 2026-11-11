@@ -2041,6 +2041,11 @@ body {
 @media (max-width: 760px) {
   /* Tab strip digantikan mobile-profile-bar agar tidak makan tempat */
   .tab-bar-container { display: none; }
-  .top-navbar { padding: 5px 8px; min-height: 38px; }
+  .top-navbar {
+    padding: 5px 8px;
+    min-height: 38px;
+    justify-content: center;
+    gap: clamp(64px, 28vw, 220px);
+  }
   .icon-btn { width: 26px; height: 26px; }
 }
