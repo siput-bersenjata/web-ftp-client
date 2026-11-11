@@ -1881,12 +1881,14 @@ body {
 /* ==========================================================================
    BAR FTP TERHUBUNG (khusus ponsel / layar sempit)
    ========================================================================== */
-.mobile-profile-bar { display: none; }
+.mobile-profile-bar {
+  display: none;
+}
 
 @media (max-width: 760px) {
   .mobile-profile-bar {
     display: block;
-    padding: 10px 10px 4px;
+    padding: 10px 10px 2px;
     background: var(--bg-app);
   }
 }
@@ -1904,7 +1906,9 @@ body {
   display: flex;
   gap: 6px;
   overflow-x: auto;
-  padding-bottom: 6px;
+  /* Ruang ekstra agar hover 3D & bayangan tidak terpotong */
+  padding: 6px 8px 9px;
+  margin: -6px -8px 0;
   -webkit-overflow-scrolling: touch;
 }
 
