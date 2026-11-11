@@ -68,6 +68,16 @@ Cara kerja:
 - Saat tab/jendela difokuskan, klien memuat ulang database — perubahan dari
   perangkat lain terlihat tanpa reload manual.
 - localStorage perangkat dipakai sebagai **mirror** (fallback offline + sumber migrasi).
+- **Aturan KONEKSI FTP PER-AKUN (WAJIB DIINGAT):** profil FTP tersimpan dengan
+  `ownerId` per akun. User biasa HANYA melihat & memakai profil miliknya sendiri;
+  admin melihat semuanya. **Tidak ada mekanisme yang otomatis menyalin koneksi admin
+  ke akun user lain** (termasuk Cartenz). Salinan koneksi admin → Cartenz yang dibuat
+  pada 11 Nov 2026 (Hasil ekstrak, Harris, Mercure) adalah penyalinan **satu kali**
+  atas permintaan eksplisit pemilik proyek. Kalau admin menambah/mengubah/men-hapus
+  koneksinya DI KEMUDIAN HARI, perubahan itu TIDAK boleh otomatis berlaku ke Cartenz
+  atau user biasa lainnya — setiap akun punya daftarnya sendiri. Kalau suatu saat
+  pemilik proyek ingin membagikan koneksi baru ke akun tertentu, penyalinannya harus
+  dilakukan secara manual/eksplisit (mis. lewat ownerId di blob), bukan lewat kode.
 
 ### Endpoint `api/db.js` (action)
 
