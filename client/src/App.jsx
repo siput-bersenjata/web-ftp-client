@@ -21,9 +21,9 @@ export default function App() {
   const isAdmin = user?.role === 'admin';
   const [adminOpen, setAdminOpen] = useState(false);
 
-  // Theme state: 'dark' (AMOLED) or 'light' (putih)
+  // Theme state: 'light' (putih) default; 'dark' (AMOLED) jika user memilih sebelumya
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('ftp_theme') || 'dark';
+    return localStorage.getItem('ftp_theme') || 'light';
   });
 
   // Mode aplikasi: cloud (Vercel) vs server lokal (Node di PC sendiri)
