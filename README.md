@@ -12,11 +12,7 @@ Buat akun lewat tab **Daftar**, lalu langsung kelola file FTP Anda dari komputer
 
 ## 📸 Tampilan
 
-### Halaman Login
-![Halaman Login — FTP Web Client](docs/screenshot-login.jpeg)
-
-### Beranda (Panel FTP & Staging)
-![Beranda — FTP Web Client](docs/screenshot-home.jpeg)
+![Halaman Login & Beranda — FTP Web Client](docs/screenshot-app.jpeg)
 
 ## ✨ Fitur
 
