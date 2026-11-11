@@ -26,7 +26,8 @@ import {
   Filter,
   WifiOff,
   KeyRound,
-  AlertCircle
+  AlertCircle,
+  MoreVertical
 } from 'lucide-react';
 
 export default function FilePane({
@@ -63,11 +64,23 @@ export default function FilePane({
   const [sortField, setSortField] = useState('name');
   const [sortAsc, setSortAsc] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsRef = React.useRef(null);
 
   useEffect(() => {
     setInputPath(currentPath || '');
     setIsEditingPath(false);
   }, [currentPath]);
+
+  // Tutup menu "titik tiga" saat klik di luar
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const onDocClick = (e) => {
+      if (toolsRef.current && !toolsRef.current.contains(e.target)) setToolsOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [toolsOpen]);
 
   const handlePathSubmit = (e) => {
     e.preventDefault();
@@ -439,7 +452,7 @@ export default function FilePane({
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={13} />
-              <span>Upload File</span>
+              <span className="btn-label">Upload File</span>
             </button>
             <input
               type="file"
@@ -466,7 +479,7 @@ export default function FilePane({
                   onClick={() => stageInputRef.current?.click()}
                 >
                   <Upload size={13} />
-                  <span>Tambah File</span>
+                  <span className="btn-label">Tambah File</span>
                 </button>
                 <input
                   type="file"
@@ -490,44 +503,101 @@ export default function FilePane({
               onClick={() => onTransferSelected && onTransferSelected()}
             >
               <Upload size={13} />
-              <span>Upload {selectedItems.length > 0 ? `(${selectedItems.length})` : ''}</span>
+              <span className="btn-label">Upload {selectedItems.length > 0 ? `(${selectedItems.length})` : ''}</span>
             </button>
           </>
         )}
 
-        <button
-          className="icon-btn"
-          title="Buat Folder Baru"
-          disabled={!onCreateFolder}
-          onClick={() => {
-            if (!onCreateFolder) return;
-            const name = prompt('Nama folder baru:');
-            if (name) onCreateFolder(name);
-          }}
-        >
-          <FolderPlus size={14} />
-        </button>
-        <button
-          className="icon-btn"
-          title="Ganti Nama"
-          disabled={selectedItems.length !== 1}
-          onClick={() => handleRenameClick()}
-        >
-          <Edit2 size={13} color={selectedItems.length === 1 ? 'var(--primary)' : undefined} />
-        </button>
-        <button
-          className="icon-btn"
-          title="Hapus yang Dipilih"
-          disabled={selectedItems.length === 0}
-          onClick={() => {
-            if (selectedItems.length === 0) return;
-            if (confirm(`Hapus ${selectedItems.length} file/folder yang dipilih?`)) {
-              if (onDeleteItem) onDeleteItem(selectedItems);
-            }
-          }}
-        >
-          <Trash2 size={14} color={selectedItems.length > 0 ? 'var(--danger)' : undefined} />
-        </button>
+        {/* Tombol sekunder — di layar sempit pindah ke menu titik-tiga (⋮) */}
+        <div className="pane-tools-extra">
+          <button
+            className="icon-btn"
+            title="Buat Folder Baru"
+            disabled={!onCreateFolder}
+            onClick={() => {
+              if (!onCreateFolder) return;
+              const name = prompt('Nama folder baru:');
+              if (name) onCreateFolder(name);
+            }}
+          >
+            <FolderPlus size={14} />
+          </button>
+          <button
+            className="icon-btn"
+            title="Ganti Nama"
+            disabled={selectedItems.length !== 1}
+            onClick={() => handleRenameClick()}
+          >
+            <Edit2 size={13} color={selectedItems.length === 1 ? 'var(--primary)' : undefined} />
+          </button>
+          <button
+            className="icon-btn"
+            title="Hapus yang Dipilih"
+            disabled={selectedItems.length === 0}
+            onClick={() => {
+              if (selectedItems.length === 0) return;
+              if (confirm(`Hapus ${selectedItems.length} file/folder yang dipilih?`)) {
+                if (onDeleteItem) onDeleteItem(selectedItems);
+              }
+            }}
+          >
+            <Trash2 size={14} color={selectedItems.length > 0 ? 'var(--danger)' : undefined} />
+          </button>
+        </div>
+
+        {/* Menu titik-tiga vertikal (hanya di ponsel / layar sempit) */}
+        <div className="pane-more-wrap" ref={toolsRef}>
+          <button
+            className="icon-btn"
+            title="Lainnya"
+            onClick={() => setToolsOpen((v) => !v)}
+            aria-expanded={toolsOpen}
+          >
+            <MoreVertical size={16} />
+          </button>
+          {toolsOpen && (
+            <div className="mobile-menu pane-more-menu" role="menu">
+              <button
+                className="menu-item"
+                disabled={!onCreateFolder}
+                onClick={() => {
+                  setToolsOpen(false);
+                  if (!onCreateFolder) return;
+                  const name = prompt('Nama folder baru:');
+                  if (name) onCreateFolder(name);
+                }}
+              >
+                <FolderPlus size={15} color="var(--primary)" />
+                <span>Buat Folder Baru</span>
+              </button>
+              <button
+                className="menu-item"
+                disabled={selectedItems.length !== 1}
+                onClick={() => {
+                  setToolsOpen(false);
+                  handleRenameClick();
+                }}
+              >
+                <Edit2 size={15} color="var(--primary)" />
+                <span>Ganti Nama</span>
+              </button>
+              <button
+                className="menu-item danger"
+                disabled={selectedItems.length === 0}
+                onClick={() => {
+                  if (selectedItems.length === 0) return;
+                  setToolsOpen(false);
+                  if (confirm(`Hapus ${selectedItems.length} file/folder yang dipilih?`)) {
+                    if (onDeleteItem) onDeleteItem(selectedItems);
+                  }
+                }}
+              >
+                <Trash2 size={15} />
+                <span>Hapus yang Dipilih</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* File Search Filter Bar */}

@@ -658,7 +658,8 @@ body {
 .breadcrumbs-container {
   display: flex;
   align-items: center;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   background: var(--bg-subtle);
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -2048,4 +2049,48 @@ body {
     gap: clamp(64px, 28vw, 220px);
   }
   .icon-btn { width: 26px; height: 26px; }
+}
+
+/* ==========================================================================
+   TOOLBAR PANE DI PONSEL — tombol sekunder pindah ke menu titik-tiga (⋮)
+   ========================================================================== */
+.pane-tools-extra {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pane-more-wrap {
+  display: none;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pane-more-menu {
+  right: 0;
+  min-width: 190px;
+}
+
+.menu-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.menu-item:disabled:hover { background: transparent; }
+
+@media (max-width: 760px) {
+  /* Breadcrumb menyusut dengan elipsis, chip tidak melebar liar */
+  .breadcrumb-chip {
+    max-width: 88px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Teks pada tombol primer disembunyikan (ikon saja) */
+  .btn-label { display: none; }
+  .btn.btn-primary { padding: 0 7px !important; }
+  /* Tombol sekunder digantikan menu titik-tiga */
+  .pane-tools-extra { display: none; }
+  .pane-more-wrap { display: block; }
+  .pane-nav-bar { padding: 6px 8px; gap: 4px; }
 }
