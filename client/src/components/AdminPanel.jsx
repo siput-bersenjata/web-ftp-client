@@ -133,7 +133,6 @@ export default function AdminPanel({ open, onClose }) {
                 <label>Peran</label>
                 <select className="form-input" value={newRole} onChange={(e) => setNewRole(e.target.value)}>
                   <option value="user">Pengguna</option>
-                  <option value="gate">Akses Bersama</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>

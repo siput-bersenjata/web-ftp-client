@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Network, Lock, User, UserPlus, Shield, Moon, Sun, KeyRound,
+  Network, Lock, User, UserPlus, Moon, Sun, KeyRound,
   AlertCircle, CheckCircle2, Loader2, ArrowRight, Info
 } from 'lucide-react';
 import * as auth from '../services/auth';
@@ -8,8 +8,9 @@ import { storageMode } from '../services/store';
 
 /**
  * Layar Login / Daftar / Setup Awal.
- * - Setup awal hanya muncul saat database akun masih kosong.
+ * - Setup awal hanya muncul saat database akun masih kosong (buat akun admin pertama).
  * - "Daftar" membuat akun sendiri (default masa aktif 30 hari, diatur admin).
+ * - Semua akun (admin maupun user biasa) login lewat form yang sama.
  */
 export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
   const [stage, setStage] = useState('checking'); // checking | setup | login
@@ -23,14 +24,9 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
 
   const [regUsername, setRegUsername] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regConfirm, setRegConfirm] = useState('');
 
   const [adminUser, setAdminUser] = useState('admin');
   const [adminPass, setAdminPass] = useState('');
-  const [adminConfirm, setAdminConfirm] = useState('');
-  const [gateUser, setGateUser] = useState('Cartenz');
-  const [gatePass, setGatePass] = useState('');
-  const [gateConfirm, setGateConfirm] = useState('');
 
   useEffect(() => {
     auth.isInitialized()
@@ -60,7 +56,6 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
     setError(null);
     if (!regUsername.trim()) return setError('Masukkan username.');
     if (regPassword.length < 4) return setError('Password minimal 4 karakter.');
-    if (regPassword !== regConfirm) return setError('Konfirmasi password tidak sama.');
     setBusy(true);
     try {
       await auth.register({ username: regUsername, password: regPassword });
@@ -79,15 +74,11 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
     e.preventDefault();
     setError(null);
     if (!adminUser.trim() || adminPass.length < 4) return setError('Password admin minimal 4 karakter.');
-    if (adminPass !== adminConfirm) return setError('Konfirmasi password admin tidak sama.');
-    if (gateUser.trim() && gatePass !== gateConfirm) return setError('Konfirmasi password akun akses tidak sama.');
     setBusy(true);
     try {
       await auth.initializeIfEmpty({
         adminUsername: adminUser,
         adminPassword: adminPass,
-        gateUsername: gateUser,
-        gatePassword: gatePass,
       });
       setStage('login');
       setInfo('Setup selesai! Silakan login dengan akun yang baru dibuat.');
@@ -124,12 +115,11 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
             <div className="login-setup-info">
               <Info size={15} />
               <span>
-                Setup awal: buat akun admin &amp; akun akses bersama pertama.
+                Setup awal: buat akun admin pertama untuk mengelola aplikasi.
                 {storageMode === 'local' && ' Saat ini memakai penyimpanan lokal — aktifkan Firebase agar sinkron antar perangkat.'}
               </span>
             </div>
 
-            <div className="login-section-label"><Shield size={13} /> Akun Admin (kelola semua akun)</div>
             <div className="form-group">
               <label>Username Admin</label>
               <div className="login-input-wrap">
@@ -137,45 +127,11 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
                 <input value={adminUser} onChange={(e) => setAdminUser(e.target.value)} required />
               </div>
             </div>
-            <div className="form-row" style={{ gap: 8 }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>Password Admin</label>
-                <div className="login-input-wrap">
-                  <KeyRound size={14} />
-                  <input type="password" value={adminPass} onChange={(e) => setAdminPass(e.target.value)} required minLength={4} placeholder="min. 4 karakter" />
-                </div>
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>Konfirmasi</label>
-                <div className="login-input-wrap">
-                  <KeyRound size={14} />
-                  <input type="password" value={adminConfirm} onChange={(e) => setAdminConfirm(e.target.value)} required />
-                </div>
-              </div>
-            </div>
-
-            <div className="login-section-label"><Lock size={13} /> Akun Akses Bersama (gate login)</div>
-            <div className="form-row" style={{ gap: 8 }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>Username</label>
-                <div className="login-input-wrap">
-                  <User size={14} />
-                  <input value={gateUser} onChange={(e) => setGateUser(e.target.value)} />
-                </div>
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>Password</label>
-                <div className="login-input-wrap">
-                  <KeyRound size={14} />
-                  <input type="password" value={gatePass} onChange={(e) => setGatePass(e.target.value)} placeholder="min. 4 karakter" />
-                </div>
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>Konfirmasi</label>
-                <div className="login-input-wrap">
-                  <KeyRound size={14} />
-                  <input type="password" value={gateConfirm} onChange={(e) => setGateConfirm(e.target.value)} />
-                </div>
+            <div className="form-group">
+              <label>Password Admin</label>
+              <div className="login-input-wrap">
+                <KeyRound size={14} />
+                <input type="password" value={adminPass} onChange={(e) => setAdminPass(e.target.value)} required minLength={4} placeholder="min. 4 karakter" />
               </div>
             </div>
 
@@ -253,13 +209,6 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
                   <div className="login-input-wrap">
                     <KeyRound size={14} />
                     <input type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="Min. 4 karakter" required minLength={4} />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Konfirmasi Password</label>
-                  <div className="login-input-wrap">
-                    <KeyRound size={14} />
-                    <input type="password" value={regConfirm} onChange={(e) => setRegConfirm(e.target.value)} required />
                   </div>
                 </div>
                 {error && <div className="login-alert error"><AlertCircle size={14} /> {error}</div>}

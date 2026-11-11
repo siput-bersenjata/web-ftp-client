@@ -1486,6 +1486,7 @@ body {
   width: 100vw;
   background: var(--bg-app);
   overflow: hidden;
+  overflow-x: hidden;
   padding: 24px;
 }
 
@@ -1515,7 +1516,7 @@ body {
   position: relative;
   z-index: 1;
   width: 420px;
-  max-width: 94vw;
+  max-width: 100%;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 18px;
@@ -1524,6 +1525,7 @@ body {
   animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   max-height: 92vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .login-brand {
@@ -1590,7 +1592,14 @@ body {
   box-shadow: var(--shadow-md);
 }
 
-.login-form .form-group { margin-bottom: 12px; }
+.login-form .form-group { margin-bottom: 12px; min-width: 0; }
+
+/* Baris form di layar login: grid yang membungkus, TIDAK pernah overflow */
+.login-form .form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
 
 .login-input-wrap {
   display: flex;
@@ -1603,6 +1612,7 @@ body {
   color: var(--text-muted);
   transition: all 0.15s ease;
   box-shadow: var(--shadow-sm);
+  min-width: 0;
 }
 
 .login-input-wrap:focus-within {
@@ -1612,6 +1622,8 @@ body {
 
 .login-input-wrap input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
   border: none;
   background: transparent;
   outline: none;
