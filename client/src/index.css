@@ -1668,6 +1668,47 @@ body {
   border-radius: 10px;
 }
 
+.remember-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 11px;
+  margin: 2px 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--bg-subtle);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease;
+}
+
+.remember-row:hover { border-color: var(--primary); }
+
+.remember-row input {
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.remember-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: var(--text-main);
+  line-height: 1.35;
+}
+
+.remember-text b { font-weight: 700; }
+
+.remember-text small {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 .login-footnote {
   font-size: 11px;
   color: var(--text-muted);

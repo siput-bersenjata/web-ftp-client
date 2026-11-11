@@ -100,7 +100,7 @@ export default function TabBar({
       <div className="header-status-group">
         {/* Bantuan Dev Button */}
         <a
-          href="https://linkfly.to/SLStoreClub"
+          href="https://salshya-club.vercel.app/"
           target="_blank"
           rel="noopener noreferrer"
           className="btn-help-dev"

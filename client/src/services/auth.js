@@ -15,7 +15,39 @@ import { storageMode } from './store';
 import { FIREBASE_CONFIG } from '../config/firebaseConfig';
 
 const USERS = 'users';
-const SESSION_KEY = 'ftp_session_v1';
+const SESSION_KEY = 'ftp_session_v1';          // localStorage — diingat 30 hari
+const SESSION_TAB_KEY = 'ftp_session_tab_v1';  // sessionStorage — hanya selama tab terbuka
+const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 hari
+
+function readSessionFrom(storage, key) {
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    // Sesi terlalu tua — anggap kedaluwarsa
+    if (session.loggedAt) {
+      const age = Date.now() - new Date(session.loggedAt).getTime();
+      if (Number.isFinite(age) && age > SESSION_MAX_AGE_MS) {
+        storage.removeItem(key);
+        return null;
+      }
+    }
+    // Sesi tanpa token pada mode cloud (dibuat sebelum fitur database bersama) tidak bisa
+    // membaca/menyimpan — paksa login ulang sekali.
+    if (isCloudRuntime && !FIREBASE_CONFIG && !session.token) {
+      storage.removeItem(key);
+      return null;
+    }
+    // Sesi admin/gate (expiresAt null) selalu aktif; user cek kedaluwarsa di sini
+    if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
+      storage.removeItem(key);
+      return null;
+    }
+    return session;
+  } catch {
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Password hashing (Web Crypto)
@@ -47,55 +79,34 @@ async function sharedStorageReady() {
   return st.storage === 'blob';
 }
 
-/** Session menyertakan token (bukan password) agar bisa baca/tulis database bersama. */
-function sessionFromLogin(user, token) {
-  return {
+export function getCurrentUser() {
+  // Cek sesi persisten (localStorage) lebih dulu, lalu sesi tab (sessionStorage)
+  const persistent = readSessionFrom(localStorage, SESSION_KEY);
+  if (persistent) return persistent;
+  return readSessionFrom(sessionStorage, SESSION_TAB_KEY);
+}
+
+export function saveSession(user, token, rememberMe = true) {
+  const session = {
     id: user.id,
     username: user.username,
     role: user.role,
     expiresAt: user.expiresAt || null,
-    token: token || null,
+    token: token || user.token || null,
     loggedAt: new Date().toISOString(),
   };
-}
-export function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    // Sesi tanpa token pada mode cloud (dibuat sebelum fitur database bersama) tidak bisa
-    // membaca/menyimpan — paksa login ulang sekali.
-    if (isCloudRuntime && !FIREBASE_CONFIG && !session.token) {
-      logout();
-      return null;
-    }
-    // Sesi admin/gate (expiresAt null) selalu aktif; user cek kedaluwarsa di sini
-    if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
-      logout();
-      return null;
-    }
-    return session;
-  } catch {
-    return null;
+  if (rememberMe) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    sessionStorage.removeItem(SESSION_TAB_KEY);
+  } else {
+    sessionStorage.setItem(SESSION_TAB_KEY, JSON.stringify(session));
+    localStorage.removeItem(SESSION_KEY);
   }
-}
-
-export function saveSession(user, token) {
-  localStorage.setItem(
-    SESSION_KEY,
-    JSON.stringify({
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      expiresAt: user.expiresAt || null,
-      token: token || user.token || null,
-      loggedAt: new Date().toISOString(),
-    })
-  );
 }
 
 export function logout() {
   localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_TAB_KEY);
   store.invalidateCache();
 }
 
@@ -191,7 +202,7 @@ export async function register({ username, password }) {
 }
 
 /** Login — memvalidasi kredensial & masa aktif akun. */
-export async function login({ username, password }) {
+export async function login({ username, password, rememberMe = true }) {
   const clean = String(username).trim();
   const shared = await sharedStorageReady();
   if (shared) {
@@ -221,7 +232,7 @@ export async function login({ username, password }) {
       throw new Error(data.error || (data.empty ? 'Belum ada akun — gunakan Setup Awal.' : 'Login gagal.'));
     }
     store.invalidateCache();
-    saveSession({ ...data.user, token: data.token }, data.token);
+    saveSession({ ...data.user, token: data.token }, data.token, !!rememberMe);
     return data.user;
   }
 
@@ -239,7 +250,7 @@ export async function login({ username, password }) {
     }
   }
 
-  saveSession(user);
+  saveSession(user, undefined, !!rememberMe);
   return user;
 }
 

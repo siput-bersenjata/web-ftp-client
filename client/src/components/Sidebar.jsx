@@ -162,7 +162,7 @@ export default function Sidebar({
               <span>New Connection</span>
             </button>
             <a
-              href="https://linkfly.to/SLStoreClub"
+              href="https://salshya-club.vercel.app/"
               target="_blank"
               rel="noopener noreferrer"
               className="btn"

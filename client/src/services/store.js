@@ -12,7 +12,6 @@
 import { FIREBASE_CONFIG } from '../config/firebaseConfig';
 
 const LS_KEY = 'ftp_cloud_db_v1';
-const SESSION_KEY = 'ftp_session_v1';
 
 const isCloudRuntime = (() => {
   const h = window.location.hostname;
@@ -46,13 +45,21 @@ export function readLocalRaw() {
   return readLocal();
 }
 
-function getSessionToken() {
+function readToken(key, storage) {
   try {
-    const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    const s = JSON.parse(storage.getItem(key) || 'null');
     return s && s.token ? s.token : null;
   } catch {
     return null;
   }
+}
+
+function getSessionToken() {
+  return (
+    readToken('ftp_session_v1', localStorage) ||
+    readToken('ftp_session_tab_v1', sessionStorage) ||
+    null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +112,10 @@ async function ensureRemoteCache() {
   });
   if (res.status === 401 || res.status === 409) {
     // Token basi / database belum ada — mulai dari mirror lokal
-    if (res.status === 401) localStorage.removeItem(SESSION_KEY);
+    if (res.status === 401) {
+      localStorage.removeItem('ftp_session_v1');
+      sessionStorage.removeItem('ftp_session_tab_v1');
+    }
     cacheDb = readLocal();
     return cacheDb;
   }

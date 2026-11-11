@@ -21,6 +21,7 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
 
   const [regUsername, setRegUsername] = useState('');
   const [regPassword, setRegPassword] = useState('');
@@ -42,7 +43,7 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
     setBusy(true);
     setError(null);
     try {
-      const user = await auth.login({ username, password });
+      const user = await auth.login({ username, password, rememberMe });
       onLoggedIn(user);
     } catch (err) {
       setError(err.message || 'Login gagal.');
@@ -183,6 +184,17 @@ export default function LoginScreen({ onLoggedIn, theme, onToggleTheme }) {
                     />
                   </div>
                 </div>
+                <label className="remember-row" title="Tetap login di browser ini tanpa perlu memasukkan password lagi">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <span className="remember-text">
+                    <b>Ingat saya</b> di perangkat ini selama 30 hari
+                    <small>Tidak dicentang = hanya aktif selama tab ini terbuka</small>
+                  </span>
+                </label>
                 {error && <div className="login-alert error"><AlertCircle size={14} /> {error}</div>}
                 {info && <div className="login-alert success"><CheckCircle2 size={14} /> {info}</div>}
                 <button className="btn btn-primary login-submit" disabled={busy}>
