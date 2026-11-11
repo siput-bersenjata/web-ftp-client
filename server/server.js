@@ -340,9 +340,9 @@ app.get('*', (req, res) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`=============================================`);
-  console.log(`🚀 FTP Web Client Server running on http://localhost:${PORT}`);
-  console.log(`🔌 WebSocket Server active on ws://localhost:${PORT}/ws`);
+  console.log(`🚀 FTP Web Client Server running on http://127.0.0.1:${PORT} (loopback only)`);
+  console.log(`🔌 WebSocket Server active on ws://127.0.0.1:${PORT}/ws`);
   console.log(`=============================================`);
 });

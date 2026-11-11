@@ -13,6 +13,11 @@
 const crypto = require('crypto');
 const db = require('./_lib/db');
 const { setCors } = require('./_lib/ftp');
+const { rateLimit, clientIp } = require('./_lib/ratelimit');
+
+function tooMany(res, retryAfter) {
+  return res.status(429).json({ error: `Terlalu banyak percobaan. Coba lagi dalam ${retryAfter} detik.` });
+}
 
 function body(req) {
   return typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
@@ -36,6 +41,8 @@ module.exports = async function handler(req, res) {
 
     switch (action) {
       case 'beat': {
+        const rlBeat = rateLimit('beat:' + clientIp(req), 60, 60 * 1000);
+        if (!rlBeat.ok) return ok(res, { active: 0 });
         // Heartbeat kehadiran: hitung user aktif dalam 5 menit terakhir.
         // Tanpa token → hanya balas jumlah (tidak membocorkan nama user).
         if (!db.isConfigured()) return ok(res, { active: 0 });
@@ -69,6 +76,8 @@ module.exports = async function handler(req, res) {
 
       case 'setup': {
         if (!db.isConfigured()) return res.status(503).json({ error: 'Database blob belum dikonfigurasi.' });
+        const rlSetup = rateLimit('setup:' + clientIp(req), 5, 60 * 1000);
+        if (!rlSetup.ok) return tooMany(res, rlSetup.retryAfter);
         const { username, password } = b;
         if (!username || !password || String(password).length < 4) {
           return res.status(400).json({ error: 'Password admin minimal 4 karakter.' });
@@ -99,6 +108,8 @@ module.exports = async function handler(req, res) {
 
       case 'register': {
         if (!db.isConfigured()) return res.status(503).json({ error: 'Database blob belum dikonfigurasi.' });
+        const rlReg = rateLimit('register:' + clientIp(req), 5, 60 * 1000);
+        if (!rlReg.ok) return tooMany(res, rlReg.retryAfter);
         const { username, password } = b;
         const clean = String(username || '').trim();
         if (!clean || clean.includes('/') || clean.length > 40) {
@@ -132,6 +143,8 @@ module.exports = async function handler(req, res) {
 
       case 'login': {
         if (!db.isConfigured()) return res.status(503).json({ error: 'Database blob belum dikonfigurasi.' });
+        const rlLogin = rateLimit('login:' + clientIp(req), 10, 60 * 1000);
+        if (!rlLogin.ok) return tooMany(res, rlLogin.retryAfter);
         const { username, password } = b;
         if (!username || !password) return res.status(400).json({ error: 'Username dan password wajib diisi.' });
         const data = await db.readDb();
@@ -208,6 +221,8 @@ module.exports = async function handler(req, res) {
 
       case 'migrate': {
         if (!db.isConfigured()) return res.status(503).json({ error: 'Database blob belum dikonfigurasi.' });
+        const rlMig = rateLimit('migrate:' + clientIp(req), 3, 60 * 1000);
+        if (!rlMig.ok) return tooMany(res, rlMig.retryAfter);
         const incoming = b.database || {};
         const users = Array.isArray(incoming.users) ? incoming.users : [];
         const profiles = Array.isArray(incoming.profiles) ? incoming.profiles : [];

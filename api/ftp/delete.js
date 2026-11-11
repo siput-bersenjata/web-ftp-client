@@ -1,3 +1,4 @@
+const { guardRequest } = require('../_lib/security');
 const { withConnection, normalizeConfig, normalizePath, sendError, setCors } = require('../_lib/ftp');
 
 module.exports = async function handler(req, res) {
@@ -5,6 +6,8 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+    const user = await guardRequest(req, res, body);
+    if (!user) return;
     const cfg = normalizeConfig(body.config);
     const target = normalizePath(body.path);
     if (!target || target === '/') return res.status(400).json({ error: 'Path tidak valid untuk dihapus.' });

@@ -10,11 +10,14 @@
  * jadi file besar sebaiknya dipecah atau di-upload dari koneksi lokal.
  */
 const { Readable } = require('stream');
+const { guardRequest } = require('../_lib/security');
 const { withConnection, normalizeConfig, normalizePath, sendError, setCors } = require('../_lib/ftp');
 
 module.exports = async function handler(req, res) {
   if (setCors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const user = await guardRequest(req, res, null);
+  if (!user) return;
   try {
     const cfgHeader = req.headers['x-ftp-config'];
     if (!cfgHeader) return res.status(400).json({ error: 'Header x-ftp-config wajib ada.' });

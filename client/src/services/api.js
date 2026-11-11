@@ -3,15 +3,26 @@ const API_BASE = '/api';
 // ---------------------------------------------------------------------------
 // MODE CLOUD (Vercel Serverless) — FTP stateless, config dikirim per-request
 // ---------------------------------------------------------------------------
+function getDbToken() {
+  for (const [key, storage] of [['ftp_session_v1', localStorage], ['ftp_session_tab_v1', sessionStorage]]) {
+    try {
+      const s = JSON.parse(storage.getItem(key) || 'null');
+      if (s && s.token) return s.token;
+    } catch { /* abaikan */ }
+  }
+  return null;
+}
+
 export const isCloudMode = (() => {
   const h = window.location.hostname;
   return !['localhost', '127.0.0.1', '[::1]'].includes(h) && !h.endsWith('.local');
 })();
 
 async function cloudCall(endpoint, payload) {
+  const token = getDbToken();
   const res = await fetch(`/api/ftp/${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(token ? { 'x-db-token': token } : {}) },
     body: JSON.stringify(payload)
   });
   const data = await res.json().catch(() => ({}));
@@ -25,6 +36,8 @@ export function cloudUpload(config, destinationPath, file, onProgress = null) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `/api/ftp/upload?dest=${encodeURIComponent(destinationPath || '/')}&name=${encodeURIComponent(file.name)}`);
     xhr.setRequestHeader('x-ftp-config', btoa(unescape(encodeURIComponent(JSON.stringify(config)))));
+    const upToken = getDbToken();
+    if (upToken) xhr.setRequestHeader('x-db-token', upToken);
     if (onProgress) {
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) onProgress(e.loaded, e.total);
@@ -46,9 +59,10 @@ export function cloudUpload(config, destinationPath, file, onProgress = null) {
 
 /** Download satu file dari FTP ke browser. */
 export async function cloudDownload(config, remotePath) {
+  const token = getDbToken();
   const res = await fetch('/api/ftp/download', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(token ? { 'x-db-token': token } : {}) },
     body: JSON.stringify({ config, path: remotePath })
   });
   if (!res.ok) {
@@ -193,9 +207,10 @@ export const api = {
 
   // FTP
   async testFtpConnection(config) {
+    const token = getDbToken();
     const res = await fetch(`${API_BASE}/ftp/test`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { 'x-db-token': token } : {}) },
       // Serverless (cloud): membaca body.config; server lokal: memakai body sebagai config langsung
       body: JSON.stringify(isCloudMode ? { config } : config)
     });

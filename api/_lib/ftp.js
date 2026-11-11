@@ -16,6 +16,7 @@
 
 const ftp = require('basic-ftp');
 const SftpClient = require('ssh2-sftp-client');
+const { setCors, isPrivateHost } = require('./security');
 
 function normalizeConfig(config) {
   if (!config || typeof config !== 'object') {
@@ -25,8 +26,16 @@ function normalizeConfig(config) {
   if (!['ftp', 'sftp', 'ftps'].includes(protocol)) {
     throw new Error(`Protokol tidak didukung: ${protocol}`);
   }
+  const host = String(config.host || '').trim();
+  if (!host) {
+    throw new Error('Host FTP tidak boleh kosong.');
+  }
+  // SSRF guard: tolak host privat / loopback / link-local / reserved
+  if (isPrivateHost(host)) {
+    throw new Error('Host privat tidak diizinkan dari server ini.');
+  }
   return {
-    host: String(config.host || '').trim(),
+    host,
     port: Number(config.port) || (protocol === 'sftp' ? 22 : 21),
     protocol: protocol === 'ftps' ? 'ftp' : protocol,
     secure: protocol === 'ftps' || !!config.secure,
@@ -131,15 +140,5 @@ function sendError(res, err, status = 500) {
   res.status(status).json({ error: message });
 }
 
-function setCors(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-ftp-config');
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return true;
-  }
-  return false;
-}
-
+// setCors sekarang di-supply dari ./security (allow-list origin)
 module.exports = { withConnection, normalizeConfig, normalizePath, mapItem, parentOf, sendError, setCors };
